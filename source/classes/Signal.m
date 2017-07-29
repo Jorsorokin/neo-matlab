@@ -5,8 +5,9 @@ classdef Signal < Container
         nPoints
         duration
         voltage
-        nChan
         nSignals
+        nChan
+        nSpikes
         fs
         epoch = NaN;
         chanInd = NaN;
@@ -33,14 +34,27 @@ classdef Signal < Container
             % the Signal object itself.
             %
             % Children:
-            %   none
+            %   Spikes
             %
             % Parents:
             %   Epoch
             %   ChannelIndex
             %
+            % Properties:
+            %   units - the measurement units of this signal (default = 'uV')
+            %   nPoints - the number of sample points of this Signal
+            %   duration - total duration in time
+            %   voltage - the actual voltage values of this Signal
+            %   nSignals - the number of channels contained in this Signal
+            %   nChan - the (equal) number of channels of the parent ChannelIndex
+            %   nSpikes - the number of spikes 
+            %   fs - the sampling rate for the voltage traces
+            %   epoch - the parent Epoch number 
+            %   chanInd - the parent ChannelIndex number
+            %
             % Methods:
             %   plot
+            %   getSpikes
             %   filter
             %   resample
             %   estimateNoise
@@ -56,9 +70,50 @@ classdef Signal < Container
         end
         
         
-        function addChild( ~,~ )
-            disp ( 'Only Neuron object is a valid child' );
+        function addChild( self,child )
+            switch class( child )
+                case 'Spikes'
+                    addChild@Container( self,child );
+                    self.nSpikes = sum( [child.nSpikes] );
+                otherwise
+                    error( 'Only Spikes objects are valid children' );
+            end
         end 
+
+
+        function addParent( self,parent )
+            switch class( parent )
+                case {'Epoch','ChannelIndex'}
+                    addParent@Container( self,parent );
+                    parent.nSignals = parent.nSignals + self.nSignals;
+                    if isa( class( parent ),'Epoch' )
+                        self.epoch = parent.epochNum; % add the Epoch                       
+                    else
+                        self.chanInd = parent.chanIndNum; % add the ChannelIndex 
+                    end
+                otherwise
+                    error( 'Only Epoch or ChannelIndex objects are valid parents' );
+            end
+        end
+        
+        
+        function spikes = getSpikes( self )
+            % spikes = getSpikes( self )
+            %
+            % pull out the Spikes objects (if any) associated with
+            % this Signal object
+            N = self.getParent( 'ChannelIndex' ).getChild( 'Neuron' );
+            if ~isempty( N )
+                for thisNeuron = 1:numel( N )
+                    allSpikes = N(thisNeuron).getChild( 'Spikes' );
+                    if ~isempty( allSpikes )
+                        spikes(thisNeuron) = allSpikes.findobj( 'epoch',self.epoch );
+                    end
+                end
+            else
+                spikes = [];
+            end
+        end
         
         
         function plot( self )
@@ -67,8 +122,8 @@ classdef Signal < Container
             % plot signals in the current Signal object.
             %
             % get the epoch start/end time if this Signal object has an
-            % Epoch parent. Plot relative to this start/stop time if it
-            % Epoch is a parent
+            % Epoch parent. Plot relative to this start/stop time. Also
+            % plot "." for spike times (if any), color coded by the Neuron ID
             ep = self.getParent('Epoch');
             if ~isempty( ep )
                 time = linspace( ep.startTime,ep.stopTime,self.nPoints );
@@ -76,15 +131,31 @@ classdef Signal < Container
                 time = linspace( 0,self.nPoints/self.fs,self.nPoints );
             end
             
+            % find the spikes children, if any, and pull out spike times
+            spikes = self.getSpikes();
+            if ~isempty( spikes )
+                cmap = colormap( jet( numel( spikes ) ) );
+            end
+
             % loop over the signals
             vStep = 10 * mean( self.estimateNoise() );
             for i = 1:self.nSignals
                 volt = self.voltage(:,i) - (vStep * (i-1));
-                plot( time,volt ); hold on;
+                plot( time,volt,'color',[.85 .85 .85] ); hold on;
+
+                % check if any "spikes" objects exist. If so, plot 
+                % as dots, color-coded by the Neuron ID
+                if ~isempty( spikes )
+                    for sp = 1:numel( spikes )
+                        plot( spikes(sp).times + ep.startTime,...
+                            volt(round( spikes(sp).times * spikes(sp).fs )),...
+                            '.','color',cmap(sp,:),'markersize',10 );
+                    end
+                end
             end
             
             % clean up graph
-            set( gca,'tickdir','out','box','off' );
+            set( gca,'tickdir','out','box','off','color','k' );
             axis tight
             xlabel( 'time (s)' );
             title( sprintf( 'ChanIndex: %i, Epoch: %i',...
@@ -94,7 +165,7 @@ classdef Signal < Container
             if ~isempty( ep )
                 if ~isempty( ep.eventTime )
                     yL = get(gca,'ylim');
-                    plot( [ep.eventTime, ep.eventTime],yL,'k--','linewidth',2 );
+                    plot( [ep.eventTime, ep.eventTime],yL,'w--','linewidth',2 );
                 end
             end                
             hold off;
@@ -123,7 +194,6 @@ classdef Signal < Container
             %
             % estimates the noise of each signal in self.voltage as:
             %   median( abs( voltage ) / 0.6745 )
-            
             noiseLevel = median( abs( self.voltage ) / 0.6745 );
         end
         

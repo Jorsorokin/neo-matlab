@@ -67,7 +67,7 @@ POSTPTS = round( 0.0015 * Fs ); % samples to extract after spike
 MINDIST = round( 0.0005 * Fs ); % avoids detecting close spikes
 
 % perform multi-teager energy filtering
-mte = MTEO( data ); % 5-point averaging, starting at 2-points
+mte = MTEO( data,2,6 ); % 5-point averaging, starting at 2-points
 
 % get the noise estimates
 noise = median( abs( mte ) / 0.6745 );
@@ -150,6 +150,12 @@ end
         vMin(bad>0,:) = [];
         vMax(bad>0,:) = [];
         sptm(bad>0,:) = [];
+        
+        % check if any remaining
+        if isempty( sptm )
+            disp( 'no spikes found' );
+            return
+        end
         
         % downsample the spikes
         snips = zeros( size(usnips,1)/4,size(usnips,2),nChan );

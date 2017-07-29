@@ -1,4 +1,4 @@
-function [S,D,neighbors] = similarityMatrix( X,K,type )
+function [S,D,neighbors] = similarityMatrix( X,K,type)
 % [S,D,neighbors] = similarityMatrix( X, (K, type) )
 %
 % Computes the pairwise similarity matrix of the columns in X. "type" can
@@ -44,7 +44,7 @@ for j = 1:N
     avg = mean( distances(neighbors(j,:)) ); 
 
     % compute S for the nearest neighbors
-    S(j,neighbors(j,:)) = 1/K * exp( -bsxfun( @rdivide,distances(neighbors(j,:)),2*avg^2 ) );
+    S(j,neighbors(j,:)) = 1/K * exp( -bsxfun(@rdivide,distances(neighbors(j,:)),2*avg^2) );
 end
 
 end

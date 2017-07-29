@@ -3,6 +3,7 @@ classdef Spikes < Container
     properties
         epoch = NaN;
         unitID = NaN;
+        chanInd = NaN;
         timeUnits = 's';
         voltUnits = 'uV';
         fs
@@ -33,7 +34,19 @@ classdef Spikes < Container
             %
             % Parents:
             %   Neuron
+            %   Signal
             %   Epoch
+            %
+            % Properties:
+            %   epoch - the parent Epoch number
+            %   unitID - the parent Neuron ID
+            %   timeUnits - the units of the spike times (default = 's' for seconds)
+            %   voltUnits - the units of the spike snips (default = 'uV')
+            %   fs - the sampling rate of the spike snips
+            %   times - the actual spike times
+            %   voltage - an n x m x c matrix of spike snips (n = points, m = # of spikes, c = channels)
+            %   nSpikes - the total number of spikes
+            %   nChan - the number of channels associated with these spikes
             %
             % Methods:
             %   plot
@@ -41,7 +54,6 @@ classdef Spikes < Container
             %
             %       * see also methods in the Container object
 
-            duration = npoints;
             self.times = times;
             self.voltage = snips;
             self.fs = fs;
@@ -51,7 +63,7 @@ classdef Spikes < Container
         
         
         function addChild( ~,~ )
-            disp( 'Neuron objects have no children' );
+            disp( 'Spike objects have no children' );
         end
         
         
@@ -62,6 +74,7 @@ classdef Spikes < Container
                     if isa( class( parent ),'Neuron' )
                         self.unitID = parent.ID; % add the associated unit ID
                         parent.nSpikes = parent.nSpikes + self.nSpikes;
+                        self.chanInd = parent.chanInd;
                     else
                         self.epoch = parent.epochNum; % add the epoch 
                     end
@@ -77,7 +90,7 @@ classdef Spikes < Container
             % plot the spike waveforms. Can optionally specify an input
             % color as a second argument, and channels as third argument
             if nargin < 2 || isempty( varargin{1} )
-                col = 'k';
+                col = 'w';
             else
                 col = varargin{1}; 
             end
@@ -93,8 +106,9 @@ classdef Spikes < Container
             
             for ch = 1:nchan
                 subplot( nchan,1,ch ); hold on;
-                fillPlot( self.voltage(:,:,chans(ch))',time,'sd',[],[],col );
-                %set( gca,'tickdir','out','box','off','xlim',[time(1) time(end)] );
+                %fillPlot( self.voltage(:,:,chans(ch))',time,'sd',[],[],col );
+                plot( time,self.voltage(:,:,chans(ch)),'color',col );
+                set( gca,'tickdir','out','box','off','xlim',[time(1) time(end)],'color','k' );
                 xlabel( 'time (ms)' );
                 ylabel( self.voltUnits );
                 title( sprintf( 'CH %i',chans(ch) ) );
@@ -103,6 +117,8 @@ classdef Spikes < Container
         
         
         function smooth( self,varargin )
+            % smooth( self, (amount) )
+            %
             % smooth the voltage waveforms using a smoothing spline
             % can optionally input a smoothing parameter that controls how
             % much smoothing is applied. Default = 0.5

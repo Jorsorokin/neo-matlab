@@ -32,7 +32,7 @@ function mteSignals = MTEO( X,varargin )
 %
 %               <<< OUTPUTS <<<
 % mteSignals:
-%   an (N-2 * kmax) x M matrix of filtered signals in X 
+%   an (N-2*kmax) x M matrix of filtered signals in X. 
 %
 % By JMS, 5/15/2017
 

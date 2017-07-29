@@ -1,4 +1,4 @@
-function rH = PlotRasters(SpikeTimes,start,varargin)
+function [rH] = PlotRasters(SpikeTimes,start,varargin)
 % function [rasterhandle] = PlotRasters(SpikeTimes,start,varargin)
 %
 %   Plots rasters of spikes based on event times denoted as "Start".
@@ -104,54 +104,42 @@ disp('plotting rasters...')
 if cell_array > 0
     for ch = 1:chans
         for trial = 1:ntrials
-
-            % extract the spikes in this plotting window for this channel/trial
-            plotspikes = SpikeTimes{ch}(SpikeTimes{ch}(:,trial) > start(trial)-pre_time...
-                        & SpikeTimes{ch}(:,trial) < start(trial)+post_time,trial); 
+            plotspikes = SpikeTimes{ch}(SpikeTimes{ch}(:,trial) > start(trial)-pre_time & SpikeTimes{ch}(:,trial) < start(trial)+post_time,trial); % extract the spikes in this plotting window for this channel/trial
             plotspikes = (plotspikes - start(ch))*1000; % make relative to the event onset, then change to ms
             
-            % plot spikes as ms
             subplot(row,col,ch); hold on;
             if ~isempty(plotspikes)
-                plot([plotspikes plotspikes],[trial-ticks trial+ticks],'k'); 
+                plot([plotspikes plotspikes],[trial-ticks trial+ticks],'k'); % plot spikes as ms
             end
             clear plotspikes
         end % trial
-
         set(gca,'xlim',[xmin xmax],'ylim',ylim,...
         'box','off','tickdir','out','ytick',[],'yticklabel',[]);
         title(['Ch: ',num2str(ch)])
     end % channel 
-
 % if not cell, plot spikes in trials
 else      
     for trial = 1:ntrials
-
-        % extract the spikes in this plotting window for this channel/trial
-        plotspikes = SpikeTimes(SpikeTimes(:,trial) > start(trial)-pre_time...
-                    & SpikeTimes(:,trial) < start(trial)+post_time,trial); 
+        plotspikes = SpikeTimes(SpikeTimes(:,trial) > start(trial)-pre_time & SpikeTimes(:,trial) < start(trial)+post_time,trial); % extract the spikes in this plotting window for this channel/trial
         plotspikes = (plotspikes - start(trial))*1000; % make relative to the event onset, then change to ms
-
-        % plot spikes as ms
         if ~isempty(plotspikes)
-            plot([plotspikes plotspikes],[trial-ticks trial+ticks],'k'); 
+            plot([plotspikes plotspikes],[trial-ticks trial+ticks],'k'); % plot spikes as ms
             hold on;
         end
         clear plotspikes
     end
-
     set(gca,'xlim',[xmin xmax],'ylim',ylim,...
     'box','off','tickdir','out','ytick',[],'yticklabel',[]);
-    ylabel('Trials');
+ylabel('Trials');
 end
 
 % print the raster and let the user look through in detail
 if saving>0
     disp('saving figure...')
     if exist('name','var')
-        print([name,'_raster.png'],'-dpng');
+        print([name,'_raster.pdf'],'-dpdf');
     else
-        print('raster.png','-dpng');
+        print('raster.pdf','-dpdf');
     end
 end
 rH = gcf; 

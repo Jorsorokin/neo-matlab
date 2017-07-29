@@ -37,6 +37,9 @@ function [ID,Params] = spikesort(spikes,Fs,varargin)
 %   PCs: an n x m matrix of principal components to be projected onto.
 %        Only applies if "method" equals "pca"
 %
+%   features: an n x m matrix of features computed from a previous spike
+%             sorting run. If provided, no PCs will be computed
+%
 %   usamp: boolean 0 or 1...if 1, will upsample by x4 (default = 0)
 %
 %   level: the total number of featuresto keep for clustering. By default,
@@ -79,7 +82,7 @@ xvec = linspace( 0,npoints/Fs,npoints );
 if p.usamp == 1
     xxvec = resample( xvec,4,1 ); % 4x up-sample rate
     Fs = Fs*4; 
-    spikes = spline( xvec,spikes',xxvec )'; 
+    spikes = spline(xvec,spikes',xxvec)'; 
     xvec = xxvec;
 end
 
@@ -98,80 +101,98 @@ spikes = bsxfun( @minus,spikes,mean( spikes ) );
 % Pull out features from the spikes dependent on the "method"
 % implementation. For "raw", use components of the spike shape itself
 switch p.method
-    case 'raw'
+    case {'raw'}
         
-        % Get the peak min/max of the spike
-        [trough,peak] = spikeHeight( spikes,Fs );
-        amp = peak - trough;
-        
-        % Get the AP slopes
-        [dslope,uslope] = spikeHeight( diff( spikes ),Fs );
-        
-        % get the peak half-width
-        halfwidth = halfWidth( spikes,trough,Fs );
-        
-        % area under curve (auc)
-        auc = sum( spikes,1 );
-        
-        % energy
-        energy = sum( spikes.^2 );
-        
-        % store into "features"
-        features = zscore( [trough,peak,amp,dslope,uslope,...
-                            halfwidth,auc',energy'] );
-        
-        % perform PCA if "decomp" is 1
-        if p.decomp == 1
-            if p.PCs == 0
-                [u,v] = svd( features' );
-                p.level = min( p.level,size( features,2 ) );
-                Params.PCs = u(:,1:p.level) * v(1:p.level,1:p.level);
-            else
-                Params.PCs = p.PCs;
+        if isnan( p.features )
+            % Get the peak min/max of the spike
+            [trough,peak] = spikeHeight( spikes,Fs );
+            amp = peak - trough;
+
+            % Get the AP slopes
+            [dslope,uslope] = spikeHeight( diff( spikes ),Fs );
+
+            % get the peak half-width
+            halfwidth = halfWidth( spikes,trough,Fs );
+
+            % area under curve (auc)
+            auc = sum( spikes,1 );
+
+            % energy
+            energy = sum( spikes.^2 );
+
+            % store into "features"
+            features = zscore( [trough,peak,amp,dslope,uslope,...
+                                halfwidth,auc',energy'] );
+
+            % perform PCA if "decomp" is 1
+            if p.decomp == 1
+                if p.PCs == 0
+                    [u,v] = svd( features' );
+                    p.level = min( p.level,size( features,2 ) );
+                    Params.PCs = u(:,1:p.level) * v(1:p.level,1:p.level);
+                else
+                    Params.PCs = p.PCs;
+                end
+                features = features * Params.PCs;
             end
-            features = features * Params.PCs;
         end
             
-    case 'pca'
+    case {'pca'}
         
         % check if "p.PCs" is supplied. If so, project onto the provided
         % PCs, else perform PCA
         
-        if p.PCs == 0
-            % perform PCA on the spike waveforms
-            p.level = min( p.level,nspikes );
-            [u,v] = svd( spikes );
-            eigval = diag( v ).^2;
+        if isnan( p.features )
+            if p.PCs == 0
+                % perform PCA on the spike waveforms
+                p.level = min( p.level,nspikes );
+                [u,v] = svd( spikes );
+                eigval = diag( v ).^2;
 
-            % only keep those that explain 95% of the variance
-            eigsum = eigval / sum( eigval );
-            eigsum = cumsum( eigsum );
-            ind = find( eigsum>=.95,1 );
-            if ~isempty( ind ) && ind < p.level
-                p.level = ind;
+                % only keep those that explain 95% of the variance
+                eigsum = eigval / sum( eigval );
+                eigsum = cumsum( eigsum );
+                ind = find( eigsum>=.95,1 );
+                if ~isempty( ind ) && ind < p.level
+                    p.level = ind;
+                end
+
+                % create our PCs
+                Params.mapping = u(:,1:p.level) * v(1:p.level,1:p.level);
+                Params.eigval = eigval;
+            else
+                Params.mapping = p.PCs;
             end
-
-            % create our PCs
-            Params.PCs = u(:,1:p.level) * v(1:p.level,1:p.level);
-            Params.eigval = eigval;
-        else
-            Params.PCs = p.PCs;
+        
+            % project onto the PCs
+            if isnan( p.features )
+                features = spikes' * Params.mapping;
+                p.level = size( Params.mapping,2 );
+            end
         end
-        
-        % project onto the PCs
-        features = spikes' * Params.PCs;
-        p.level = size( Params.PCs,2 );
 
-    case 'ica'
+    case {'ica'}
         
-        % perform ICA on the spike waveforms
-        [Params.ICs,features,~] = fastica( spikes','numOfIC',p.level,...
-            'lasteig',min( p.level*2,size(spikes,2) ),...
-            'Verbose','off','stabilization','on' );
+        if isnan( p.features )       
+            % perform ICA on the spike waveforms
+            [Params.mapping,features,~] = fastica( spikes','numOfIC',p.level,...
+                'lasteig',min( p.level*2,size(spikes,2) ),...
+                'Verbose','off','stabilization','on' );
+        end
+    
+    case {'tsne'}
+        if isnan( p.features )
+            [features,Params.mapping] = compute_mapping( spikes',p.method,p.level ); % use defaults
+        end
+            
 end
 
 % zscore the features for clustering stability
-features = zscore( features ); 
+if isnan( p.features )
+    features = zscore( features ); 
+else
+    features = p.features;
+end
 %==============================================
 
 %% Clustering
@@ -199,10 +220,10 @@ end
     function p = check_inputs(inputs)
         % parse the optional inputs
         pnames = {'method','decomp','init','usamp','plotting',...
-            'par','search','level','reject','PCs'};
-        defaults = {'raw',0,2,0,0,0,0,5,.6,0};
+            'par','search','level','reject','PCs','features'};
+        defaults = {'raw',0,2,0,0,0,0,5,.6,0,0};
         options = {{'raw','ica','pca'},{0,1},{nan},{0,1},{0,1},...
-                         {0,1},{0,1},{1:50},{linspace(0,1,101)},{nan}};
+                         {0,1},{0,1},{1:50},{linspace(0,1,101)},{nan},{nan}};
 
         p = inputParser;             
         % loop over the rest of the optional inputs
@@ -210,7 +231,7 @@ end
             if ischar(options{j}{1})
                 p.addParameter( pnames{j},defaults{j},@(x) max(strcmp(x,options{j})) == 1 );
             else
-                if strcmp( pnames{j},'init' ) || strcmp( pnames{j},'PCs' )
+                if strcmp( pnames{j},'init' ) || strcmp( pnames{j},'PCs' ) || strcmp( pnames{j},'features' )
                     p.addParameter( pnames{j},defaults{j},@(x) ~isempty(x) );
                 else
                     p.addParameter( pnames{j},defaults{j},@(x) max(x == cell2mat(options{j})) == 1 );
@@ -228,12 +249,9 @@ end
         % only perform search if previous model not supplied
         if p.search == 1 && isnumeric( p.init )        
             maxclust = min( 6,floor( npoints*.1 ) );
-            if p.init > maxclust
-                p.init = maxclust;
-            end
             
             % evaluate cluster number
-            E = evalclusters( features,'gmdistribution','calinskiharabasz','klist',1:maxclust );
+            E = evalclusters( features,'gmdistribution','Silhouette','klist',1:maxclust );
             p.init = E.OptimalK;
             fprintf( 'Optimal # of clusters: %i\n',p.init );
         end

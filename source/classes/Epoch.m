@@ -8,6 +8,7 @@ classdef Epoch < Container
         epochNum
         nSignals = 0;
         nSpikes = 0;
+        name
     end
     
     methods
@@ -17,7 +18,7 @@ classdef Epoch < Container
             %
             % Initiate an instance of the Epoch class. 
             % An Epoch contains the starting and ending time
-            % of a specific segment of data recording during a 
+            % of a specific segment of data during a recording 
             % session (although this definition can be extended 
             % as a specific pair of times to hold any segment of data,
             % not specifically from just one recording session).
@@ -42,13 +43,38 @@ classdef Epoch < Container
             % Parents:
             %   Block 
             %
+            % Properties:
+            %   startTime - starting time of the epoch
+            %   stopTime - ending time of the epoch
+            %   duration - total duration
+            %   eventTime - start time of an event within the epoch
+            %   nSignals - number of channels contained in this epoch
+            %   nSpikes - number of action potentials detected in this epoch across all channels
+            %   name - user-defined name to give to this epoch
+            %
             % Methods:
+            %   addEvent
             %   car (common average reference)
+            %   rmMovement
             %   plotSignals
+            %   stateSpace
             %   
             %       * see also methods in the Container class
+            %
+            % Examples:
+            %
+            %   % create two Epochs, each a specific stimulus and of
+            %   % varying lengths.
+            %   startTimes = [12, 44];
+            %   endTimes = [20, 48];
+            %   events = [16, 46];
+            %   names = {'stim1','stim2'};
+            %   for j = 1:2
+            %       epoch(j) = Epoch( startTimes(j),endTimes(j),j );
+            %       epoch(j).name = names{j};
+            %       epoch(j).eventTime = events(j);
+            %   end
 
-            
             self.startTime = startTime;
             self.stopTime = stopTime;
             self.duration = stopTime - startTime;
@@ -98,16 +124,15 @@ classdef Epoch < Container
         
         function car( self,varargin )
             % car( self,(IDX) )
-            % 
-            % loop over the "Signal" objects specified by the indices "idx"
-            % and for each, subtract the mean of all others. This is a
-            % virtual reference method to eliminate common noise among
-            % channels for the given Epoch. By default, "idx" will include
-            % all "Signal" objects that are children of the current Epoch.
-            %
             % Subtracts the common average reference (CAR) from voltages in
             % each "Signal" object, in place.
-            
+            %
+            % loop over the "Signal" objects specified by the indices "IDX"
+            % and for each, subtract the mean of all others. This is a
+            % virtual reference method to eliminate common noise among
+            % channels for the given Epoch. By default, "IDX" will include
+            % all "Signal" objects that are children of the current Epoch.
+
             % get the "Signal" children, if any
             signals = self.getChild( 'Signal' );
             if isempty( signals )
@@ -125,21 +150,117 @@ classdef Epoch < Container
             indices = false( 1,numel( signals ) );
             indices(IDX) = true;
             
+            % preallocate our reference matrix
+            CAR = zeros( signals(IDX(1)).nPoints,numel( IDX ) );
+            
             % loop over the signal objects defined by IDX
+            count = 0;
             for i = IDX
+                count = count+1;
                 indices(i) = false;
                 
                 % get mean voltage waveforms 
-                CAR = mean( [signals(indices).voltage],2 );
-                
-                % subtract the CAR from the ith signal voltage
-                signals(i).voltage = bsxfun( @minus,signals(i).voltage,CAR );
+                CAR(:,count) = mean( [signals(indices).voltage],2 );
                 
                 indices(i) = true;
             end 
-        end
             
+            % subtract the CAR from the signal voltages
+            count = 0;
+            for i = IDX
+                count = count+1;
+                signals(i).voltage = bsxfun( @minus,signals(i).voltage,CAR(:,count) );
+            end
+        end
+
+
+        function rmMovement( self,varargin )
+            % rmMovement( self, (corrThresh) )
+            %
+            % eliminates the spiketimes and waveforms contained within
+            % the "spikes" children of this Epoch that are too highly 
+            % correlated with others over different channels. 
+            % 
+            % Movement artifacts are usually present across all channels,
+            % and this is an attempt to remove those artifacts 
+            % from spike detection. You can set the max correlation 
+            % coefficient allowed before elimination (default = 0.8)
+
+            % check inputs
+            if nargin < 2 || isempty( varargin{1} )
+                corrThresh = 0.8;
+            else 
+                corrThresh = varargin{1};
+            end
+
+            % get the Spikes and Signal objects of this epoch
+            newSpikeCount = 0;
+            spikes = self.getChild( 'Spikes' );
+            signals = self.getChild( 'Signal' );
+
+            % check for any spikes
+            if isempty( spikes )
+                disp( 'Must detect spikes first. Ending function.' );
+            end
+
+            % create a big matrix of the raw signals
+            rawdata = zeros( size( signals(1).voltage,1 ),self.nSignals );
+            counter = 1;
+            for i = 1:numel( signals )
+                rawdata(:,counter:counter+signals(i).nSignals-1) = signals(i).voltage;
+                counter = counter + signals(i).nSignals;
+            end
+            FS = signals(1).fs;
+
+            % create our pre/post # of samples to extract for each spike
+            pretime = floor( 0.0005 * FS );
+            posttime = floor( 0.0015 * FS );
+
+            % loop over Spike objects
+            for i = 1:numel( spikes )
+
+                % find signals associated with this spike object
+                childSigs = spikes(i).getSibling( 'Signal','Epoch' );
+                siblingSigs = ismember( signals,childSigs );
+
+                % pull out the spike times
+                sptime = round( spikes(i).times * FS );
+                badspikes = false( numel( sptime ),1 );
+
+                % loop over spike times, take average spike snip across sibling channels
+                % and compare to the other signals 
+                for sp = 1:numel( sptime )
+                    thisSnip = mean( rawdata( sptime(sp)-pretime:sptime(sp)+posttime,siblingSigs ),2 );
+                    otherSnips = rawdata( sptime(sp)-pretime:sptime(sp)+posttime,~siblingSigs );
+
+                    % get the correlation coefficient across channels for this spike snip
+                    [coef,~] = corrcoef( [thisSnip,otherSnips] );
+
+                    % check if any coefficient is larger than our max allowed. If so, indicate as a bad 
+                    % spike and discard from this spike object
+                    if max( coef(2:end,1) ) > corrThresh
+                        badspikes(sp) = true;
+                    end
+                end
+
+                % remove bad spikes
+                spikes(i).times(badspikes) = [];
+                spikes(i).voltage(:,badspikes,:) = [];
+                spikes(i).nSpikes = sum( ~badspikes );
+                newSpikeCount = newSpikeCount + spikes(i).nSpikes;
+
+                % update the number of spikes in the Neuron parent
+                neuron = spikes(i).getParent( 'Neuron' );
+                if ~isempty( neuron )
+                    neuron.nSpikes = neuron.nSpikes - sum( badspikes );
+                end
+            end
+
+            % update the number of spikes in this epoch 
+            self.nSpikes = newSpikeCount;
+        end
         
+
         function plotSignals( self )
             % plotSignals( self )
             %
@@ -160,19 +281,22 @@ classdef Epoch < Container
             figure; hold on;
             cmap = colormap( parula( nChIdx ) );
             
+            % get noise estimate average
+            noise = 0;
+            for chidx = 1:nChIdx
+                noise = noise + mean( sig(chidx).estimateNoise() );
+            end
+            noise = noise / chidx * 10;
+
             % loop over each channel group and individual signal and plot
             for chidx = 1:nChIdx
                 data = sig(chidx).voltage;
-                time = linspace( self.startTime,self.stopTime,sig(chidx).nPoints );
-                vRange = 10 * mean( sig(chidx).estimateNoise() );
-                for i = 1:sig(chidx).nSignals
-                    plot( time,data(:,i)-(vRange * counter),'color',cmap(chidx,:) );
-                    counter = counter + 1;
-                end
+                multisignalplot( data - (noise*counter),sig(chidx).fs,cmap(chidx,:),noise );
+                counter = counter + sig(chidx).nSignals;
             end 
             
             % clean up graph
-            set( gca,'tickdir','out','box','off' );
+            set( gca,'tickdir','out','box','off','ytick',[],'yticklabel',[] );
             axis tight
             xlabel( 'time (s)' );
             title( sprintf( 'All signals for epoch %i',self.epochNum ) );
@@ -180,11 +304,82 @@ classdef Epoch < Container
             % now plot a vertical line indicating an event if one exists
             if ~isempty( self.eventTime )
                 yL = get(gca,'ylim');
-                plot( [self.eventTime, self.eventTime],yL,'k--','linewidth',2 );
+                plot( [self.eventTime-self.startTime, self.eventTime-self.startTime],yL,'k--','linewidth',2 );
             end  
         end
-            
-    end
+
+
+        function [projections,rate,kernel] = stateSpace( self,varargin )
+            % [projections,rateskernels] = stateSpace( self, (kernel,start,stop) )
+            %
+            % compute the firing rate of the spikes associated with this Epoch
+            % and (assuming each spike train is from an isolated neuron)
+            % compute the projections of the firing rates onto their PCs.
+            %
+            % if "kernel" is left blank, an optimal, adaptive kernel will be calculated
+            % for each spike train. Additionally, one can specify "start" and "stop" in 
+            % seconds relative to the duration of the epoch event time (if it exists)
+            % to only calculate the projections for a subset of time of the entire epoch
+
+            % check inputs
+            if nargin > 1 && ~isempty( varargin{1} )
+                kernel = varargin{1};
+                findKernel = false;
+            else
+                findKernel = true;
+            end
+            if nargin > 2 && ~isempty( varargin{2} )
+                start = varargin{2};
+            else
+                start = 0;
+            end
+            if nargin > 3 && ~isempty( varargin{3} )
+                stop = varargin{3};
+            else
+                stop = self.duration;
+            end
+
+            % estimate the kernel....
+            %
+            % ... to be filled in ...
+
+            % normalize the kernel
+            kernel = kernel / norm( kernel );
+
+            % get the spikes associated with this epoch. 
+            spikes = self.getChild( 'Spikes' );
+            nSp = numel( spikes );
+            if isempty( spikes )
+                disp( 'Must detect spikes first' );
+                projections = nan;
+                return;
+            end
+
+            % Preallocate our firing rate matrix
+            startPt = max( 1,ceil( start * spikes(1).fs ) );
+            stopPt = ceil( stop * spikes(1).fs );
+            rate = zeros( stopPt-startPt,nSp );
+
+            for sp = 1:nSp
+
+                % pull out the neuron
+                neuron = spikes(sp).getParent( 'Neuron' );
+
+                % get the firing rate
+                fr = neuron.firingRate( kernel );
+
+                % only keep the rate associated with this epoch
+                thisEpoch = ismember( [neuron.getChild( 'Spikes' ).epoch],self.epochNum );
+                rate(:,sp) = smooth( fr(startPt:stopPt-1,thisEpoch),floor( 0.02 * spikes(1).fs ) );
+            end
+
+            % project the spike rates onto their PCs
+            [u,s] = svd( rate' );
+            PCs = u(:,1:3) * s(1:3,1:3);
+            projections = rate * PCs;
+        end
+        
+    end % methods
     
 end
         

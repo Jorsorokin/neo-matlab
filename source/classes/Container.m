@@ -1,4 +1,64 @@
 classdef Container < handle
+    % Container < handle
+    %
+    % An abstract superclass for the classes: 
+    % Block, Epoch, ChannelIndex, Neuron, Signal, and Spikes 
+    %
+    % Provides the functionality for each of these objects to
+    % reference one another via the "child-parent" syntax. A Container
+    % should not be directly instantiated, but instead is automatically
+    % inherited by the other objects listed above. 
+    %
+    % Because a Container inherets from "handle", and each of the above 
+    % objects inherets from Container, everything is accessed by reference 
+    % rather than copying. This can dramatically improve speed as memory 
+    % isn't allocated when assigning a reference to one of these objects 
+    % to a local variable, HOWEVER the programmer should be aware that 
+    % references point to the same memory, and thus changing the value of 
+    % a property of one reference to an object will change the value of 
+    % that property in another reference to the same object.
+    %
+    % Children:
+    %   none
+    %
+    % Parents:
+    %   none
+    %
+    % Properties:
+    %   parent - an empty (to begin) cell array. As parents are added, each
+    %            new type will be stored as its own n-dimensional element,
+    %            where the dimension "n" refers to the number of parents 
+    %            of that type.
+    %   children - ditto, but for added children.
+    %   
+    %       * in general, a "parent" is a higher-level object containing
+    %         a lower-level child as a reference. Thus, "Neuron" is the
+    %         parent of "Spikes", since each neuron should have its
+    %         associated series of spike trains. 
+    %
+    % Methods
+    %   addChild
+    %   addParent
+    %   removeChild
+    %   removeParent
+    %   getChild
+    %   getParent
+    %   getPartner
+    %   getSibling
+    %   deleteSelf <-- note, calling this will clear the current object from
+    %                  memmory, as well as any reference to the object
+    %
+    %       * methods are intentionally redundant. I.e. if both a Neuron
+    %       and its associated Spikes objects exist, then calling
+    %       "Neuron.removeChild( 'Spikes' )" or "Spikes.removeParent(
+    %       "Neuron" ) will both accomplish the same thing: the parent
+    %       Neuron will de-reference the Spikes child, AND the Spikes child
+    %       will de-reference the Neuron parent. The redundancy in calls
+    %       gives this Container abstract class a highly modular form,
+    %       allowing the programmer to take the viewpoint of whichever
+    %       object (the child or the parent) seems more intuitive for
+    %       his/her purposes at any given time.
+    
     properties
         parent = {};
         children = {};
@@ -140,9 +200,11 @@ classdef Container < handle
             
                 % first remove the child from the parent
                 for j = indices
-                    [~,childID] = padre(j).getChild( class( self ) );
-                    padre(j).children{childID} = [];
+                    [child,childID] = padre(j).getChild( class( self ) );
+                    thisChild = find( ismember( child,self ) );                    
+                    padre(j).children{childID}(thisChild) = [];
                 end
+                clear child 
                 
                 % now remove the parent from the child
                 if nargin == 3 || numel( indices ) == numel( padre )
@@ -236,13 +298,13 @@ classdef Container < handle
         function deleteSelf( self )
             % deleteSelf( self )
             %
-            % delete this object from memory. Remove from parent/remove all
-            % children of this object
+            % delete this object from memory. Remove from parents and 
+            % remove all children of this object
             for j = 1:numel( self.parent )
-                self.removeParent( class( self.parent{j} ) );
+                self.removeParent( class( self.parent{1} ) );
             end
             for j = 1:numel( self.children )
-                self.removeChild( class( self.children{j} ) );
+                self.removeChild( class( self.children{1} ) );
             end
             delete( self );
         end
