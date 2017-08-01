@@ -1,6 +1,7 @@
 classdef Spikes < Container
     
     properties
+        electrode = NaN;
         epoch = NaN;
         unitID = NaN;
         chanInd = NaN;
@@ -34,19 +35,20 @@ classdef Spikes < Container
             %
             % Parents:
             %   Neuron
-            %   Signal
+            %   Electrode
             %   Epoch
             %
             % Properties:
+            %   electrode - the parent electrode/channel
             %   epoch - the parent Epoch number
             %   unitID - the parent Neuron ID
+            %   chanInd - the parent ChannelIndex
             %   timeUnits - the units of the spike times (default = 's' for seconds)
             %   voltUnits - the units of the spike snips (default = 'uV')
             %   fs - the sampling rate of the spike snips
             %   times - the actual spike times
             %   voltage - an n x m x c matrix of spike snips (n = points, m = # of spikes, c = channels)
             %   nSpikes - the total number of spikes
-            %   nChan - the number of channels associated with these spikes
             %
             % Methods:
             %   plot
@@ -69,14 +71,18 @@ classdef Spikes < Container
         
         function addParent( self,parent )
             switch class( parent )
-                case {'Epoch','Neuron'}
+                case {'Neuron','Electrode','Epoch'}
                     addParent@Container( self,parent );
                     if isa( class( parent ),'Neuron' )
                         self.unitID = parent.ID; % add the associated unit ID
                         parent.nSpikes = parent.nSpikes + self.nSpikes;
                         self.chanInd = parent.chanInd;
-                    else
+                    elseif isa( class( parent ),'Epoch' )
                         self.epoch = parent.epochNum; % add the epoch 
+                    else
+                        self.electrode = parent.electrodeNum;
+                        parent.nSpikes = parent.nSpikes + self.nSpikes;
+                        self.chanInd = parent.chanInd;
                     end
                 otherwise
                     error( 'Only Epoch or Neuron objects are valid parents' );

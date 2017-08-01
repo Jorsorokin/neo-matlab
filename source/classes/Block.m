@@ -9,6 +9,7 @@ classdef Block < Container
         nChanInds = 0;
         nUnits = 0;
         nSignals = 0;
+        chanMap = [];
     end
     
     methods
@@ -41,6 +42,8 @@ classdef Block < Container
             %   nChanInds - number of ChannelIndex objects extracted
             %   nUnits - number of Neurons identified
             %   nSignals - number of raw voltage signals (total across channels/epochs)   
+            %   chanMap - a sparse block-diagonal matrix defining channel groups among all 
+            %                channels (used for creating ChannelIndex objects).
             %
             % Methods:
             %   print

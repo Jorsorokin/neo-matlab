@@ -1,10 +1,10 @@
 classdef ChannelIndex < Container
     
     properties 
-        channels
-        chanIDs
+        channels = NaN;
+        chanIDs = [];
         chanIndNum
-        nChans
+        nChans = 0;
         nSignals = 0;
         nUnits = 0;
         name
@@ -13,8 +13,8 @@ classdef ChannelIndex < Container
         
     methods
         
-        function self = ChannelIndex( channels,channelIDs,chanIndNum )
-            % self = ChannelIndex( channels,channelIDs,chanIndNum )
+        function self = ChannelIndex( chanIndNum )
+            % self = ChannelIndex( chanIndNum )
             %
             % Initiate an instance of the ChannelIndex class.
             % A ChannelIndex object contains a reference to a set of
@@ -56,33 +56,30 @@ classdef ChannelIndex < Container
             %
             %       * see also methods in the Container class
             
-            self.channels = channels;
-            self.chanIDs = channelIDs;
             self.chanIndNum = chanIndNum;
-            self.nChans = numel( channels );
         end
         
         
         function addChild(self,child)
             % overloaded method to add specific attributes to the
             % ChannelIndex class
-            if max( strcmp( class( child ),{'Signal','Neuron'} ) ) == 0
-                error( 'Only Signal and Neuron objects are valid children' );
+            if max( strcmp( class( child ),{'Electrode','Neuron'} ) ) == 0
+                error( 'Only Electrode and Neuron objects are valid children' );
             end
             
             for j = 1:numel( child )
                 switch class( child )
-                    case {'Signal'}
-                        if child(j).nSignals ~= self.nChans
-                            error( 'Signal and ChanIndex objects must have equal # of channels' );
-                        end
+                    case 'Electrode'
+                        self.nChans = self.nChans + 1;
                         self.nSignals = self.nSignals + child(j).nSignals;
-                    case {'Neuron'}
+                        self.chanIDs = [self.chanIDs,child(j).electrodeNum];
+                        self.channels = 1:self.nChans;
+                        child(j).chanInd = [child(j).chanInd,self.chanIndNum]
+                    case 'Neuron'
                         self.nUnits = self.nUnits + 1;
+                        child(j).chanInd = self.chanIndNum;
                 end
                 addChild@Container( self,child(j) );
-                child(j).chanInd = self.chanIndNum;
-                child(j).nChan = self.nChans;
             end  
         end
         
@@ -91,13 +88,10 @@ classdef ChannelIndex < Container
             % overloaded method to add specific attributes to the
             % ChannelIndex class
             switch class( parent )
-                case {'Block','Epoch'}
+                case 'Block'
                     addParent@Container( self,parent );
                 otherwise
                     error( 'Only Block or Epoch objects are valid parents' );
-            end
-            if isa( parent,'Epoch' )
-                self.epoch = parent.epochNum;
             end
         end
         
@@ -117,7 +111,7 @@ classdef ChannelIndex < Container
             % self.sortSpikes()
             
             % find all Signal object children of current channel index
-            signals = self.getChild( 'Signal' );
+            signals = self.getChild( 'Electrode' );
             nSig = numel( signals ); % number of epochs
             if isempty( signals )
                 assert( 'No signals detected in current channel index' );
