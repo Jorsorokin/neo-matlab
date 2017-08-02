@@ -1,7 +1,6 @@
 classdef ChannelIndex < Container
     
     properties 
-        channels = NaN;
         chanIDs = [];
         chanIndNum
         nChans = 0;
@@ -30,15 +29,14 @@ classdef ChannelIndex < Container
             % within the group of channels over the recording session.
             %
             % Children:
-            %   Signals
+            %   Electrode
             %   Neurons
             %
             % Parents:
             %   Block
             %
             % Properties:
-            %   channels - the indicies of the channels from the list of all recorded channels
-            %   chanIDs - the actual channel IDs, which may have been remapped 
+            %   chanIDs - the actual channel/electrode IDs
             %   chanIndNum - the unique number for this ChannelIndex object
             %   nChans - number of channels contained in this ChannelIndex
             %   nSignals - number of raw Signals provided to this ChannelIndex
@@ -47,6 +45,7 @@ classdef ChannelIndex < Container
             %          (i.e. tetrode1, stereotrode3, etc.)
             %
             % Methods:
+            %   getSignals
             %   detectSpikes
             %   sortSpikes
             %   sortGUI
@@ -94,13 +93,29 @@ classdef ChannelIndex < Container
                     error( 'Only Block or Epoch objects are valid parents' );
             end
         end
+
+
+        function signals = getSignals( self )
+            % returns all Signal objects contained within all Electrodes
+            % belonging to this ChannelIndex object
+            signals = [];
+            if self.nSignals == 0
+                disp( 'No signals available' );
+                return;
+            end
+
+            electrodes = self.getChild( 'Electrode' );
+            for j = 1:self.nChans
+                signals = [signals,electrodes(j).getChild( 'Signal' )];
+            end
+        end
         
         
         function detectSpikes( self,thresh,artifact )
             % detectSpikes( self,thresh,artifact )
             %
-            % find spike waveforms from the analog signals in the child 
-            % "Signal" object. If no such child exists, end the function.
+            % find spike waveforms from the analog signals contained in the child 
+            % "Electrode" object. If no such child exists, end the function.
             %
             % stores the results of each detection into a "Spikes" object
             % and also creates a "Neuron" object that contains a reference
@@ -110,37 +125,53 @@ classdef ChannelIndex < Container
             % be sorted through the current object via:
             % self.sortSpikes()
             
-            % find all Signal object children of current channel index
-            signals = self.getChild( 'Electrode' );
-            nSig = numel( signals ); % number of epochs
-            if isempty( signals )
-                assert( 'No signals detected in current channel index' );
-                return
+            % find all electrodes in this group
+            electrode = self.getChild( 'Electrode' );
+            if isempty( electrode )
+                disp( 'No electrode(s) available' );
+                return;
             end
+
+            % pull out the actual Signals & the total Epochs/Electrodes
+            signals = [];
+            for j = 1:self.nChans
+                signals = [signals,electrodes(j).getChild( 'Signal' )];
+            end
+
+            % get their epochs 
+            epochNums = [signals.epoch]; 
+            if ~any( isnan( epochNums ) ) % i.e. no Epoch class instances
+                epochNums = 1:numel( epochNums );
+            end
+            electrodeNum = [signals.electrode];
+            uniqueEpochs = unique( epochNums );
             
             % create a Neuron class if one doesn't exist for the current
-            % ChannelIndex
             N = self.getChild( 'Neuron' );
             if ~isempty( N )
                 self.removeChild( 'Neuron' );
             end
-            self.addChild( Neuron( 0 ) ); % zero-ID neuron indicated pre-sorting
+            self.addChild( Neuron( 0 ) ); % zero-ID neuron indicates pre-sorting / non-sorted
 
-            % find spikes using all chans combined in the "ChannelIndex" 
-            for sig = 1:nSig
+            % Spike Detection
+            % ==================================================================
+            for ep = uniqueEpochs
                 
-                % detect the spikes
-                volt = filtfilt2( signals(sig).voltage,300,0,signals(sig).fs );
+                % get the voltage traces associated with the current epoch & filter for spikes
+                thisEpoch = ismember( epochNums,ep );
+                volt = filtfilt2( [signals(thisEpoch).voltage],300,0,signals(1).fs );
                 [n,m] = size( volt );
                 volt = reshape( smooth( medfilt1( volt,3 ) ),n,m ); % removes spot noise
+
+                % detect the spikes
                 [sptm,spsnip] = detectSpikes( volt,signals(sig).fs,...
                     thresh,1,artifact );
                 
                 % create a "Spikes" object using the found spikes
-                Sp(sig) = Spikes( sptm/signals(sig).fs,spsnip,signals(sig).fs );
+                Sp(ep) = Spikes( sptm / signals(sig).fs,spsnip,signals(sig).fs );
                 
                 % get the Epoch if it exists
-                E = signals(sig).getParent( 'Epoch' );
+                E = signals(find( thisEpoch,1 )).getParent( 'Epoch' );
                 if ~isempty( E )
                     
                     % find the previous spikes associated with all Neuron objects in this ChannelIndex
@@ -151,9 +182,10 @@ classdef ChannelIndex < Container
                             E.removeChild( 'Spikes',prevSpikeInds ); % remove previous spikes
                         end
                     end
-                    E.addChild( Sp(sig) ); % add the new spikes
+                    E.addChild( Sp(ep) ); % add the new spikes
                 end
             end
+            % ==================================================================
             
             % now add the Spikes object to the Neuron object
             self.getChild( 'Neuron' ).addChild( Sp ); 

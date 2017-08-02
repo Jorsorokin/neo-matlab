@@ -5,6 +5,7 @@ classdef Block < Container
         date
         condition
         filepath
+        nElectrodes = 0;
         nEpochs = 0;
         nChanInds = 0;
         nUnits = 0;
@@ -97,12 +98,12 @@ classdef Block < Container
             % 
             % displays the file metadata and children
             self.update();
-            fprintf('-----------------------------------------\n');
+            fprintf('----------------------------------------------\n');
             fprintf( '%s (%s)\nRecorded on %s\n',...
                 self.filename,self.condition,self.date );
-            fprintf( '\n%i identified units over %i channel groups & %i epochs\n',...
-                self.nUnits, self.nChanInds, self.nEpochs );
-            fprintf('-----------------------------------------\n');
+            fprintf( '\n%i identified units over %i electrodes in %i channel groups & %i epochs\n',...
+                self.nUnits, self.nElectrodes, self.nChanInds, self.nEpochs );
+            fprintf('----------------------------------------------\n');
         end
         
         
@@ -112,16 +113,37 @@ classdef Block < Container
             % updates the properties contained within this block according
             % to its children. It searches through the Epoch and
             % ChannelIndex children (if any) and updates the number of
-            % epochs, channels, neurons, and signals found.
+            % epochs, channels, neurons, electrodes, and signals found.
             epoch = self.getChild( 'Epoch' );
             chanind = self.getChild( 'ChannelIndex' );
+            electrode = [];
+
+            % check for validity & update
             if ~isempty( chanind )                
-                % check for validity
                 chanind(~isvalid( chanind )) = [];
-                self.nSignals = sum( [chanind.nSignals] );
+                
+                for j = 1:self.nChanInds
+                    electrode = [electrode,chanind(j).getChild( 'Electrode' )];
+                end
+
+                % get the # of unique signals
+                if ~isempty( electrode )
+                    nSig = 0;
+                    allElectrodes = [electrode.electrodeNum];
+                    uniqueElectrodes = unique( allElectrodes );
+                    for j = uniqueElectrodes
+                        nSig = nSig + electrode(find( allElectrodes == j,1)).nSignals;
+                    end
+                    self.nSignals = nSig;
+                    self.nElectrodes = numel( uniqueElectrodes );
+                else
+                    self.nSignals = 0;
+                    self.nElectrodes = 0;
+                end
             end
+
+            % check for validity & update
             if ~isempty( epoch )
-                % check for validity
                 epoch(~isvalid( epoch )) = [];
                 
                 % loop over spike objects, remove those that are not valid
@@ -137,9 +159,11 @@ classdef Block < Container
                     end
                 end
             end
+
+            % update the block
             self.nEpochs = numel( epoch );
             self.nChanInds = numel( chanind );
-            
+
             % update all the Neuron IDs and the IDs associated with their
             % Spikes children
             neurons = self.getNeurons();

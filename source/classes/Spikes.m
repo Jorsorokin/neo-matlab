@@ -1,7 +1,7 @@
 classdef Spikes < Container
     
     properties
-        electrode = NaN;
+        electrode = [];
         epoch = NaN;
         unitID = NaN;
         chanInd = NaN;
@@ -39,10 +39,10 @@ classdef Spikes < Container
             %   Epoch
             %
             % Properties:
-            %   electrode - the parent electrode/channel
+            %   electrode - the parent electrode(s)
             %   epoch - the parent Epoch number
             %   unitID - the parent Neuron ID
-            %   chanInd - the parent ChannelIndex
+            %   chanInd - the associated ChannelIndex
             %   timeUnits - the units of the spike times (default = 's' for seconds)
             %   voltUnits - the units of the spike snips (default = 'uV')
             %   fs - the sampling rate of the spike snips
@@ -80,12 +80,12 @@ classdef Spikes < Container
                     elseif isa( class( parent ),'Epoch' )
                         self.epoch = parent.epochNum; % add the epoch 
                     else
-                        self.electrode = parent.electrodeNum;
+                        self.electrode(end+1) = parent.electrodeNum;
                         parent.nSpikes = parent.nSpikes + self.nSpikes;
                         self.chanInd = parent.chanInd;
                     end
                 otherwise
-                    error( 'Only Epoch or Neuron objects are valid parents' );
+                    error( 'Only Epoch, Electrode, and Neuron objects are valid parents' );
             end
         end
         

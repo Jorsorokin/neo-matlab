@@ -310,7 +310,7 @@ classdef Epoch < Container
 
 
         function [projections,rate,kernel] = stateSpace( self,varargin )
-            % [projections,rateskernels] = stateSpace( self, (kernel,start,stop) )
+            % [projections,rate,kernel] = stateSpace( self, (kernel,start,stop) )
             %
             % compute the firing rate of the spikes associated with this Epoch
             % and (assuming each spike train is from an isolated neuron)
@@ -339,9 +339,10 @@ classdef Epoch < Container
                 stop = self.duration;
             end
 
-            % estimate the kernel....
-            %
-            % ... to be filled in ...
+
+            % estimate the kernel
+            % TO DO
+            %   To be filled in ...
 
             % normalize the kernel
             kernel = kernel / norm( kernel );
@@ -361,7 +362,6 @@ classdef Epoch < Container
             rate = zeros( stopPt-startPt,nSp );
 
             for sp = 1:nSp
-
                 % pull out the neuron
                 neuron = spikes(sp).getParent( 'Neuron' );
 
@@ -373,7 +373,11 @@ classdef Epoch < Container
                 rate(:,sp) = smooth( fr(startPt:stopPt-1,thisEpoch),floor( 0.02 * spikes(1).fs ) );
             end
 
-            % project the spike rates onto their PCs
+            % TO DO:
+            %   projections using manifold learning vs. PCA,
+            %   or use a robust-version of PCA 
+
+            % project the spike rates onto their PCs 
             [u,s] = svd( rate' );
             PCs = u(:,1:3) * s(1:3,1:3);
             projections = rate * PCs;

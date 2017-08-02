@@ -6,8 +6,8 @@ classdef Signal < Container
         duration
         nPoints
         fs
-        electrode
-        epoch
+        electrode = [];
+        epoch = NaN;
     end
 
     methods
@@ -43,6 +43,11 @@ classdef Signal < Container
             %   filter
             %   resample
             %   estimateNoise
+            %
+            %       * see also methods in the Container class
+            
+            self.nPoints = size( voltage,1 );
+            self.duration = self.nPoints / self.fs;
         end
 
 
