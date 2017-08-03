@@ -180,11 +180,10 @@ switch p.method
                 'Verbose','off','stabilization','on' );
         end
     
-    case {'tsne'}
+    otherwise
         if isnan( p.features )
             [features,Params.mapping] = compute_mapping( spikes',p.method,p.level ); % use defaults
-        end
-            
+        end         
 end
 
 % zscore the features for clustering stability

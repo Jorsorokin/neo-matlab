@@ -158,7 +158,8 @@ classdef Electrode < Container
                     voltage(1:signals(sig).nPoints) = signals.voltage;
                 end
             else
-                disp( 'No raw data traces available' );
+                disp( 'No signals available' );
+                voltage = nan;
             end
         end
         
@@ -170,28 +171,53 @@ classdef Electrode < Container
             % 
             % wLevel equals the wavelet decomposition level desired (lower
             % = less smoothing), and wType equals the wavelet to use.
+            %
+            % Note, this function will not work if the voltages contained within 
+            % the various "Signal" children of this electrode have different 
+            % sampling rates and/or number of points.
             
+            if self.nSignals == 0
+                disp( 'No signals available' );
+                return
+            end
+
+            % pull out the voltages
+            signals = self.getChild( 'Signal' );
+            voltage = self.getSignals();
+
             % get the multi-signal wavelet decomposition
-            dec = mdwtdec( 'c',self.voltage,wLevel,wType );
+            dec = mdwtdec( 'c',voltage,wLevel,wType );
             
             % denoise the decomposition using multi-resolution
-            self.voltage = mswden( 'den',dec,'rigrsure','mln','s' );
+            voltage = mswden( 'den',dec,'rigrsure','mln','s' );
+
+            % now add voltages back to their parent signals
+            for j = 1:self.nSignals
+                signals(j).voltage = voltage(:,j);
+            end
         end
 
 
         function plot( self )
             % plot( self )
             %
-            % plot signals in the current Signal object.
+            % plot signals in the current Electrode object.
             %
             % get the epoch start/end time if this Signal object has an
             % Epoch parent. Plot relative to this start/stop time. Also
             % plot "." for spike times (if any), color coded by the Neuron ID
-            ep = self.getPartner( 'Epoch','Signal' );
-            if ~isempty( ep )
-                time = linspace( ep.startTime,ep.stopTime,self.nPoints );
-            else
-                time = linspace( 0,self.nPoints/self.fs,self.nPoints );
+            if self.nSignals == 0
+                disp( 'No signals available' );
+                return
+            end
+            
+            % get the epochs and create a time-matrix for plotting
+            ep = self.getPartner( 'Epoch','Signal' );                
+            fs = [signals.fs];
+            nPoints = [signals.nPoints];
+            time = nan( max(nPoints),self.nSignals );
+            for sig = 1:self.nSignals
+                time(1:nPoints(sig),sig) = linspace( 0,nPoints(sig)/fs(sig),nPoints(sig) );
             end
             
             % get the voltage traces
@@ -204,7 +230,7 @@ classdef Electrode < Container
             end
 
             % loop over the signals
-            vStep = 10 * self.getChild( 'Signal',1 ).estimateNoise();
+            vStep = 10 * signals(1).estimateNoise();
             for i = 1:self.nSignals
                 volt = voltage(:,i) - (vStep * (i-1));
                 plot( time,volt,'color',[.85 .85 .85] ); hold on;
