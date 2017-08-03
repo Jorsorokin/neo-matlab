@@ -6,7 +6,7 @@ Neo-matlab is an all-purpose, modular package for analyzing and organizing large
 This package is built completely in the MATLAB language, meaning the only pre-processing needed for interfacing with the package is loading one's data into the MATLAB workspace. Although relying on the MATLAB language means this package has certain limitations (such as speed hits and more-rigid class structures compared to Python), MALTAB continues to be the defacto language for neural data analysis. Additionally, there are a plethora of third-party functions developed by the MATLAB community that facilitate loading data from most systems (Plexon, Axona, NeuroNexus, OpenEphys...) and performing a wide range of sophisticated analysis. 
 
 ## Structure
-The strength of this package comes from the combination of raw data preprocessing, spike detection and sorting, and an extensive multitiered system for organizing and storing data (highly inspired by the Neo Python package). The various classes used for data processing and organization are subclasses of the MATLAB *handle* class, meaning data and objects are all passed by reference. This results in a much more efficient data processing pipeline as objects (i.e. neurons, spikes, electrodes, etc.) and their corresponding data (i.e. spike waveforms, raw signals, etc.) grow in size. However, those unfamiliar with referenced data (as in Python) should familiarize themselves to avoid overwriting data accidentally. 
+The strength of this package comes from the combination of raw data preprocessing, spike detection and sorting, and an extensive multitiered system for organizing and storing data (highly inspired by the Neo Python package). The various classes used for data processing and organization are subclasses of the MATLAB *handle* class, meaning data and objects are all passed by reference. This results in a much more efficient data processing pipeline as objects (i.e. neurons, spikes, electrodes, etc.) and their corresponding data (i.e. spike waveforms, raw signals, etc.) grow in size. However, those unfamiliar with referenced data (as in Python) should familiarize themselves to avoid overwriting data accidentally. (Please also see the [heirarchy scheme](images/MatlabNeo_schematic.pdf))
 
 #### Block 
 At the top level, the *Block* class contains metadata (file names, paths, recording data, recording condition...) for a particular recording file, and has methods for updating, printing, and writing all data contained within the block to disk. For the best organization, a data pipeline for each recording should begin with the creation of a *Block* instance that accumulates the various channels, signals, electrodes, and neurons discovered in the raw data. 
@@ -70,7 +70,7 @@ While much of the package was written by me, certain features were either inspir
 5. Of course, inspiration from the [Neo](http://neuralensemble.org/neo/) python package
 
 ## Uses 
-For further information on using this package for data extraction and organization, see the [various examples](docs/examples.mdown), and the more detailed [documentation](docs/documentation.pdf)
+For further information on using this package for data extraction and organization, see the [various examples](docs/examples), and the detailed [GUI documentation](docs/GUI_manual.pdf)
 
 
 

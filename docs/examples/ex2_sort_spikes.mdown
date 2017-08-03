@@ -1,0 +1,84 @@
+# Example 2: sort spikes via command line and GUI
+Suppose we have already extracted our data of interest, detected spikes, and stored everything under the appropriate Block object. We wish to sort the spikes based on their extracellular membrane potentials that we have detected. We can do this in two ways: via the command line or using a GUI.
+
+### Command line interface
+Recall that any unsorted spikes are assigned to a Neuron object with `ID = 0`. Thus, when calling `channelindex.detectSpikes()` (assuming electrodes and signals are available), a new Neuron object will be instantiated with a 0-ID. We can sort this Neuron using the `channelindex.sortSpikes()` method.
+
+``` matlab
+% set our sorting parameters 
+projectMethod = 'pca';
+initClusters = 4; % we'll assume 4 distinct clusters
+numDims = 6; % keep up to 6 PCs
+rejectProb = 0.1; % reject points belonging to any cluster with <= 10% probability
+
+% sort the spikes (assuming our ChannelIndex instance is called 'channelindex')
+channelindex.sortSpikes( 'method',projectMethod,'init',initClusters,...
+						'level',numDims,'reject',rejectProb );
+
+% now we can check the clusters by plotting the results
+channelindex.plotFeatures(); % plots multiple 2D plots of the PC features of the spikes, color-coded by neurons
+
+% for a better view, loop over individual neurons and plot their features
+neurons = channelindex.getChild( 'Neuron' ); % point to Neuron objects
+for n = 1:numel( neurons )
+	neurons(n).plotFeatures();
+end
+```
+
+Suppose we believe that our data is clustered differently than that found by the 'sortSpikes' method. Specifically, we wish to split the 3rd neuron into two new neurons, and merge the 1st and the 4th. The *ChannelIndex* class allows one to perform such functions. 
+
+``` matlab
+% to avoid confusion, clear local variable pointers to the Neuron objects
+clear neurons; % <-- note, this does not actually clear the memory, just the local pointer variable
+
+% first, split the 3rd neuron into 2. 
+% This results in the one of the two new neurons having the same ID as the neuron we just split, 
+% and the other having an ID = 5 (since we originally had 4 neurons)
+id = channelindex.getChild( 'Neuron',3 ).ID; % gets the 3rd neuron's ID
+channelindex.sortSpikes( 'method',projectMethod,'init',2,...
+						'level',numDims,'reject',rejectProb,...
+						'neuronID',id ); % <-- only sorts the neuron with specified "neuronID" 
+
+% now let's merge the 1st and 4th neuron. 
+% We must supply their IDs into the 'mergeNeurons()' method, as we did above for the 'sortSpikes()' method
+id = [channelindex.getChild( 'Neuron',[1,4] ).ID]; % gets the 1st/4th neurons' IDs, stored into a vector
+channelindex.mergeNeurons( id ); % merges the neurons with IDs specified by the input argument
+```
+
+If one now typed `block.print()`, the top-level block will first update all of the children to account for any new sub-children, then `print` the result to screen as a brief summary. One should see that the block now contains more isolated neurons, as it should after our sorting routine. Note that, as mentioned, everything is a reference, so there is no need to explicitly re-add the updated channelindex object to the parent. When we updated the # of neurons contained in the channelindex by running `channelindex.sortSpikes()` & `channelindex.mergeNeurons()`, the same underlying memory contained within the parent block is automatically updated.
+
+### GUI interface
+Sorting via the command line has the advantage that one can specify sorting parameters and sort spikes contained in many ChannelIndex objects in a loop. However, automatic sorting certainly has its limitation, and one may wish to visualize the clustering on the fly and/or manually cut clusters. The `sortTool.m` file contains the code for interfacing with the `sortTool.fig` GUI. While one may manually call the GUI by directly supplying spike waveforms, a big advantage of this package is that the `ChannelIndex` class is inherently tied to the GUI: `channelindex.sortGUI()`. Any spikes that are sorted in the GUI via this command are automatically instantiated into new `Spike` objects, and contained within new parent `Neuron` objects.
+
+``` matlab
+% call the sorting GUI for ALL spikes contained within this channelindex
+channelindex.sortGUI();
+
+% ... 
+% at this point, a figure will pop up. 
+% Refer to the documentation under /docs/GUI_manual.pdf
+% ... 
+% sort the spikes...
+% ...
+
+% as we did before, we can check the clustering results by looping over neurons and plotting the features
+neurons = channelindex.getChild( 'Neurons' );
+for i = 1:numel( neurons )
+	neurons(i).plotFeatures();
+	pause();
+end
+```
+
+The GUI can be called with specific IDs so that we may re-sort any subset of the neurons. The GUI will automatically pre-color the data points according to their parent neuron IDs. For instance, suppose we wish to re-sort the 3rd, 5th, and 8th neurons...
+
+``` matlab
+% clear previous neuron pointer
+clear neurons;
+
+% get the IDs that we need, then call the GUI with just these IDs
+id = [channelindex.getChild( 'Neuron',[3,5,8] ).ID];
+channelindex.sortGUI( id );
+% ... 
+% sort the spikes...
+% ...
+```
