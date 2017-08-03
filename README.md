@@ -8,7 +8,7 @@ This package is built completely in the MATLAB language, meaning the only pre-pr
 ## Structure
 The strength of this package comes from the combination of raw data preprocessing, spike detection and sorting, and an extensive multitiered system for organizing and storing data (highly inspired by the Neo Python package). The various classes used for data processing and organization are subclasses of the MATLAB *handle* class, meaning data and objects are all passed by reference. This results in a much more efficient data processing pipeline as objects (i.e. neurons, spikes, electrodes, etc.) and their corresponding data (i.e. spike waveforms, raw signals, etc.) grow in size. However, those unfamiliar with referenced data (as in Python) should familiarize themselves to avoid overwriting data accidentally. 
 
-![alt text](https://github.com/Jorsorokin/neo-matlab/images/scheme.png "Heirarchy scheme")
+![heirarchy](https://github.com/Jorsorokin/neo-matlab/blob/master/images/MatlabNeo_schematic.pdf "Heirarchy scheme")
 **Figure 1: class heirarchy**
 
 #### Block 
