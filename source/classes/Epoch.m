@@ -89,17 +89,16 @@ classdef Epoch < Container
                 error( 'Only Signal & Spikes objects are valid children' );
             end
             
+            switch class( child )
+                case 'Signal'
+                    self.nSignals = self.nSignals + numel( child );
+                case 'Spikes'
+                    self.nSpikes = self.nSpikes + [child.nSpikes];
+            end
+            addChild@Container( self,child );
             for j = 1:numel( child )
-                addChild@Container( self,child(j) );
-                child(j).epoch = self.epochNum;               
-
-                switch class( child )
-                    case {'Signal'}
-                        self.nSignals = self.nSignals + child(j).nSignals;
-                    case {'Spikes'}
-                        self.nSpikes = self.nSpikes + child(j).nSpikes;
-                end
-            end  
+                child(j).epoch = self.epochNum;   
+            end
         end
         
         

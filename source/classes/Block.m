@@ -30,6 +30,7 @@ classdef Block < Container
             % Children:
             %   Epoch
             %   ChannelIndex
+            %   Electrode
             %
             % Parents:
             %   none
@@ -76,14 +77,17 @@ classdef Block < Container
 
         function addChild(self,child)
             switch class( child )
-                case {'Epoch'}
+                case 'Epoch'
                     addChild@Container( self,child );
                     self.nEpochs = self.nEpochs + numel( child );
-                case {'ChannelIndex'}
+                case 'ChannelIndex'
                     addChild@Container( self,child );
                     self.nChanInds = self.nChanInds + numel( child );
+                case 'Electrode'
+                    addChild@Container( self,child );
+                    self.nElectrodes = self.nElectrodes + numel( child );
                 otherwise 
-                    error( 'Only ChannelIndex and Epoch objects are valid children' );
+                    error( 'Only ChannelIndex, Electrode, & Epoch objects are valid children' );
             end
         end
         
@@ -99,10 +103,11 @@ classdef Block < Container
             % displays the file metadata and children
             self.update();
             fprintf('----------------------------------------------\n');
-            fprintf( '%s (%s)\nRecorded on %s\n',...
+            fprintf( '%s (%s)\nRecorded on %s\n\n',...
                 self.filename,self.condition,self.date );
-            fprintf( '\n%i identified units over %i electrodes in %i channel groups & %i epochs\n',...
-                self.nUnits, self.nElectrodes, self.nChanInds, self.nEpochs );
+            fprintf( '%i electrodes; %i signals; %i channel groups; %i epochs\n',...
+                self.nElectrodes, self.nSignals, self.nChanInds, self.nEpochs );
+            fprintf( '%i identified units\n', self.nUnits );
             fprintf('----------------------------------------------\n');
         end
         
@@ -116,33 +121,31 @@ classdef Block < Container
             % epochs, channels, neurons, electrodes, and signals found.
             epoch = self.getChild( 'Epoch' );
             chanind = self.getChild( 'ChannelIndex' );
-            electrode = [];
+            electrode = self.getChild( 'Electrode' );
+            neurons = self.getNeurons();
 
-            % check for validity & update
+            % check for validity & update: ChannelIndex
+            % =========================================
             if ~isempty( chanind )                
                 chanind(~isvalid( chanind )) = [];
-                
-                for j = 1:self.nChanInds
-                    electrode = [electrode,chanind(j).getChild( 'Electrode' )];
-                end
-
-                % get the # of unique signals
-                if ~isempty( electrode )
-                    nSig = 0;
-                    allElectrodes = [electrode.electrodeNum];
-                    uniqueElectrodes = unique( allElectrodes );
-                    for j = uniqueElectrodes
-                        nSig = nSig + electrode(find( allElectrodes == j,1)).nSignals;
-                    end
-                    self.nSignals = nSig;
-                    self.nElectrodes = numel( uniqueElectrodes );
-                else
-                    self.nSignals = 0;
-                    self.nElectrodes = 0;
-                end
             end
+            self.nChanInds = numel( chanind );
+            
+            % check validity & update: Electrode
+            % ==================================
+            if ~isempty( electrode )
+                nSig = 0;
+                for j = 1:numel( electrode )
+                    nSig = nSig + electrode(j).nSignals;
+                end
+                self.nSignals = nSig;
+            else
+                self.nSignals = 0;
+            end
+            self.nElectrodes = numel( electrode );
 
-            % check for validity & update
+            % check validity & update: Epoch
+            % ==============================
             if ~isempty( epoch )
                 epoch(~isvalid( epoch )) = [];
                 
@@ -159,14 +162,10 @@ classdef Block < Container
                     end
                 end
             end
-
-            % update the block
             self.nEpochs = numel( epoch );
-            self.nChanInds = numel( chanind );
 
-            % update all the Neuron IDs and the IDs associated with their
-            % Spikes children
-            neurons = self.getNeurons();
+            % check validity & update: Neuron
+            % ==============================
             if ~isempty( neurons )
                 neurons(~isvalid( neurons )) = [];
                 for j = 1:numel( neurons )
@@ -199,7 +198,7 @@ classdef Block < Container
             disp( 'Writing the Block to disk...' );
             
             self.update(); % update the num channels/epochs/units
-            eval( ['block' '=self'] ); % makes "block" reference "self"
+            eval( ['block' '=self'] ); % makes variable "block" reference "self"
             save( [outpath,filesep,self.filename,'_extractedData.mat'],'block' );
         end
         

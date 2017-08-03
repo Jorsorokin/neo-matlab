@@ -274,6 +274,11 @@ classdef Neuron < Container
             %
             % estimate the appropriate width and sigma for the gaussian kernel
             % for convolving spike times to compute a firing rate.
+            
+            width = nan;
+            sigma = nan;
+            kernel = nan;
+            
         end
 
 

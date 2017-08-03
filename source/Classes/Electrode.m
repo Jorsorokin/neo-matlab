@@ -2,8 +2,8 @@ classdef Electrode < Container
     
     properties
         nSignals = 0;
-        nChan
-        nSpikes
+        nChanInd = 0;
+        nSpikes = 0;
         chanInd = [];
         electrodeNum
         name
@@ -11,8 +11,8 @@ classdef Electrode < Container
     
     methods
         
-        function self = Electrode( voltage,fs,electrode )
-            % self = Signal( voltage,fs,electrode )
+        function self = Electrode( electrodeNum )
+            % self = Electrode( electrodeNum )
             %
             % Creates an instance of the Electrode class.
             % An Electrode is a container for both Signal and Spike objects,
@@ -30,11 +30,13 @@ classdef Electrode < Container
             %
             % Parents:
             %   ChannelIndex
+            %   Block
             %
             % Properties:
             %   nSignals - the number of channels contained in this Signal
             %   nSpikes - the number of spikes 
             %   chanInd - the parent ChannelIndex number
+            %   nChanInd - the number of ChannelIndex parents
             %   electrodeNum - a unique number refering to this electrode
             %   name - a user-defined tag for the electrode (i.e. "shank 3, chan 2")
             %   
@@ -45,12 +47,8 @@ classdef Electrode < Container
             %   waveDenoise
             %   
             %       * see also methods in the Container class
-
-            self.voltage = voltage;
-            self.nPoints = size( voltage,1 );
-            self.duration = self.nPoints / fs;
-            self.nSignals = size( voltage,2 );
-            self.fs = fs;
+            
+            self.electrodeNum = electrodeNum;
         end
         
         
@@ -59,7 +57,7 @@ classdef Electrode < Container
                 case {'Spikes','Signal'}
                     addChild@Container( self,child );
                     if isa( child,'Spikes' )
-                        self.nSpikes = sum( [child.nSpikes] );
+                        self.nSpikes = self.nSpikes + sum( [child.nSpikes] );
                     else
                         self.nSignals = self.nSignals + numel( child );
                     end
@@ -78,8 +76,10 @@ classdef Electrode < Container
                 case 'ChannelIndex'
                     addParent@Container( self,parent );
                     parent.nSignals = parent.nSignals + self.nSignals;
-                    parent.nChan = parent.nChan + 1;
-                    self.chanInd = [self.chanInd,parent.chanIndNum]; % add the ChannelIndex 
+                    parent.nChanInd = parent.nChanInd + 1;
+                    self.chanInd(end+1) = parent.chanIndNum;
+                case 'Block'
+                    parent.nElectrodes = parent.nElectrodes + 1;
                 otherwise
                     error( 'Only ChannelIndex objects are valid parents' );
             end
@@ -160,6 +160,7 @@ classdef Electrode < Container
             else
                 disp( 'No raw data traces available' );
             end
+        end
         
         
         function waveDenoise( self,wLevel,wType )

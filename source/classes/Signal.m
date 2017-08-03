@@ -15,7 +15,7 @@ classdef Signal < Container
         function self = Signal( voltage,fs )
             % self = Signal( voltage,fs )
             %
-            % Create an instance of the Electrode class.
+            % Create an instance of the Signal class.
             % A Signal object contains digitally-sampled
             % voltages from a continuous recording.
             %
@@ -46,6 +46,8 @@ classdef Signal < Container
             %
             %       * see also methods in the Container class
             
+            self.voltage = voltage;
+            self.fs = fs;
             self.nPoints = size( voltage,1 );
             self.duration = self.nPoints / self.fs;
         end
@@ -60,7 +62,7 @@ classdef Signal < Container
             switch class( parent )
                 case {'Electrode','Epoch'}
                     addParent@Container( self,parent );
-                    parent.nSignals = parent.nSignals + self.nSignals;
+                    parent.nSignals = parent.nSignals + 1;
                     if isa( class( parent ),'Epoch' )
                         self.epoch = parent.epochNum; % add the Epoch                       
                     else

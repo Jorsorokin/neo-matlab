@@ -2,13 +2,13 @@ classdef ChannelIndex < Container
     
     properties 
         chanIDs = [];
+        channels = NaN;
         chanIndNum
-        nChans = 0;
+        nElectrodes = 0;
         nSignals = 0;
         nUnits = 0;
         name
-    end
-           
+    end      
         
     methods
         
@@ -30,15 +30,17 @@ classdef ChannelIndex < Container
             %
             % Children:
             %   Electrode
-            %   Neurons
+            %   Neuron
             %
             % Parents:
             %   Block
             %
             % Properties:
-            %   chanIDs - the actual channel/electrode IDs
+            %   channels - the Electrodes from the list of all Electrodes (i.e.
+            %              block.getChild( 'Electrode' ) )
+            %   chanIDs - the actual Electrode IDs
             %   chanIndNum - the unique number for this ChannelIndex object
-            %   nChans - number of channels contained in this ChannelIndex
+            %   nElectrodes - number of Electrode objects contained in this ChannelIndex
             %   nSignals - number of raw Signals provided to this ChannelIndex
             %   nUnits - number of Neurons provided to this ChannelIndex
             %   name - user-defined name specific to this ChannelIndex 
@@ -69,11 +71,10 @@ classdef ChannelIndex < Container
             for j = 1:numel( child )
                 switch class( child )
                     case 'Electrode'
-                        self.nChans = self.nChans + 1;
+                        self.nElectrodes = self.nElectrodes + 1;
                         self.nSignals = self.nSignals + child(j).nSignals;
-                        self.chanIDs = [self.chanIDs,child(j).electrodeNum];
-                        self.channels = 1:self.nChans;
-                        child(j).chanInd = [child(j).chanInd,self.chanIndNum]
+                        self.chanIDs(end+1) = child(j).electrodeNum;
+                        child(j).chanInd(end+1) = self.chanIndNum;
                     case 'Neuron'
                         self.nUnits = self.nUnits + 1;
                         child(j).chanInd = self.chanIndNum;
@@ -105,7 +106,7 @@ classdef ChannelIndex < Container
             end
 
             electrodes = self.getChild( 'Electrode' );
-            for j = 1:self.nChans
+            for j = 1:self.nElectrodes
                 signals = [signals,electrodes(j).getChild( 'Signal' )];
             end
         end
@@ -134,7 +135,7 @@ classdef ChannelIndex < Container
 
             % pull out the actual Signals & the total Epochs/Electrodes
             signals = [];
-            for j = 1:self.nChans
+            for j = 1:self.nElectrodes
                 signals = [signals,electrodes(j).getChild( 'Signal' )];
             end
 
@@ -143,7 +144,6 @@ classdef ChannelIndex < Container
             if ~any( isnan( epochNums ) ) % i.e. no Epoch class instances
                 epochNums = 1:numel( epochNums );
             end
-            electrodeNum = [signals.electrode];
             uniqueEpochs = unique( epochNums );
             
             % create a Neuron class if one doesn't exist for the current
@@ -155,20 +155,20 @@ classdef ChannelIndex < Container
 
             % Spike Detection
             % ==================================================================
-            for ep = uniqueEpochs
+            for ep = 1:numel( uniqueEpochs )
                 
-                % get the voltage traces associated with the current epoch & filter for spikes
-                thisEpoch = ismember( epochNums,ep );
-                volt = filtfilt2( [signals(thisEpoch).voltage],300,0,signals(1).fs );
+                % get the voltage traces associated with the current epoch & filter for spike
+                thisEpoch = ismember( epochNums,uniqueEpochs( ep ));
+                fs = signals(find( thisEpoch,1 )).fs;
+                volt = filtfilt2( [signals(thisEpoch).voltage],300,0,fs );
                 [n,m] = size( volt );
                 volt = reshape( smooth( medfilt1( volt,3 ) ),n,m ); % removes spot noise
 
                 % detect the spikes
-                [sptm,spsnip] = detectSpikes( volt,signals(sig).fs,...
-                    thresh,1,artifact );
+                [sptm,spsnip] = detectSpikes( volt,fs,thresh,1,artifact );
                 
                 % create a "Spikes" object using the found spikes
-                Sp(ep) = Spikes( sptm / signals(sig).fs,spsnip,signals(sig).fs );
+                Sp(ep) = Spikes( sptm/fs,spsnip,fs );
                 
                 % get the Epoch if it exists
                 E = signals(find( thisEpoch,1 )).getParent( 'Epoch' );
@@ -187,8 +187,11 @@ classdef ChannelIndex < Container
             end
             % ==================================================================
             
-            % now add the Spikes object to the Neuron object
+            % now add the spikes to the Electrodes and Neuron parents
             self.getChild( 'Neuron' ).addChild( Sp ); 
+            for j = 1:self.nElectrodes
+                electrodes(j).addChild( Sp );
+            end
         end
         
 
@@ -524,10 +527,10 @@ classdef ChannelIndex < Container
             % get the spikes from these neurons
             nSpikes = [neurons.nSpikes];
             nPts = size( neurons(1).getChild( 'Spikes',1 ).voltage,1 );
-            spsnips = nan( nPts,sum( nSpikes ),self.nChans );   % nPt x nSp x nCh matrix (spike waveforms)
-            sptimes = nan( sum( nSpikes ),1 );                  % nSp x 1 vector (spike times)
-            epoch = sptimes;                                    % nSp x 1 vector (parent epoch)
-            id = sptimes;                                       % nSp x 1 vector (class labels) 
+            spsnips = nan( nPts,sum( nSpikes ),self.nElectrodes );   % nPt x nSp x nCh matrix (spike waveforms)
+            sptimes = nan( sum( nSpikes ),1 );                       % nSp x 1 vector (spike times)
+            epoch = sptimes;                                         % nSp x 1 vector (parent epoch)
+            id = sptimes;                                            % nSp x 1 vector (class labels) 
             counter = 0;
             for n = 1:nNeurons
                 inds = counter+1:counter+nSpikes(n);

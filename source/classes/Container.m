@@ -2,7 +2,7 @@ classdef Container < handle
     % Container < handle
     %
     % An abstract superclass for the classes: 
-    % Block, Epoch, ChannelIndex, Neuron, Signal, and Spikes 
+    % Block, Epoch, ChannelIndex, Neuron, Electrode, Signal, and Spikes 
     %
     % Provides the functionality for each of these objects to
     % reference one another via the "child-parent" syntax. A Container
