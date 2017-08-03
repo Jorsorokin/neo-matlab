@@ -1,5 +1,5 @@
 # neo-matlab
-A MATLAB-interpretation of [NEO](http://neuralensemble.org/neo/), a python package for organizing large datasets of multi-channel extracellular recordings.
+A MATLAB interpretation of [NEO](http://neuralensemble.org/neo/), a python package for organizing large datasets of multi-channel extracellular recordings.
 
 Neo-matlab is an all-purpose, modular package for analyzing and organizing large-scale electrophysiology recordings. While other excellent packages exist for a similar purpose (see "MClust", "KlustaKwik", "Spike2", and "SimpleClust" for some examples), each has its own shortcomming (including strict dependence on specific file formats, limited sorting routines, and lack of an integrated heirarchical organization system) that the neo-matlab package is aimed at resolving. 
 
@@ -7,9 +7,6 @@ This package is built completely in the MATLAB language, meaning the only pre-pr
 
 ## Structure
 The strength of this package comes from the combination of raw data preprocessing, spike detection and sorting, and an extensive multitiered system for organizing and storing data (highly inspired by the Neo Python package). The various classes used for data processing and organization are subclasses of the MATLAB *handle* class, meaning data and objects are all passed by reference. This results in a much more efficient data processing pipeline as objects (i.e. neurons, spikes, electrodes, etc.) and their corresponding data (i.e. spike waveforms, raw signals, etc.) grow in size. However, those unfamiliar with referenced data (as in Python) should familiarize themselves to avoid overwriting data accidentally. 
-
-![heirarchy](https://github.com/Jorsorokin/neo-matlab/blob/master/images/MatlabNeo_schematic.pdf "Heirarchy scheme")
-**Figure 1: class heirarchy**
 
 #### Block 
 At the top level, the *Block* class contains metadata (file names, paths, recording data, recording condition...) for a particular recording file, and has methods for updating, printing, and writing all data contained within the block to disk. For the best organization, a data pipeline for each recording should begin with the creation of a *Block* instance that accumulates the various channels, signals, electrodes, and neurons discovered in the raw data. 
@@ -19,7 +16,7 @@ At the top level, the *Block* class contains metadata (file names, paths, record
 *Children:* ChannelIndex, Epoch, Electrode
 
 #### ChannelIndex
-A class for storing a group of channels together that should logically be contained as one object. For instance, the four channels of a [tetrode](https://en.wikipedia.org/wiki/Tetrode_(biology)) can be associated with one *ChannelIndex* instance, resulting in the subsequenct association of an action potential or neuron detected on any of these channels with all four channels of the tetrode. *ChannelIndex* objects contain methods for spike detection, sorting, and for interfacing with the *sortTool* GUI (see below). Although not all recording conditions may involve grouped electrodes, one should still associate spatially isolated electrodes their own *ChannelIndex* instances for subsequent spike detection and sorting, as Electrode objects (below) do not have these capabilities.
+A class for storing a group of channels together that should logically be contained as one object. For instance, the four channels of a [tetrode](https://en.wikipedia.org/wiki/Tetrode_(biology)) can be associated with one *ChannelIndex* instance, resulting in the subsequenct association of an action potential or neuron detected on any of these channels with all four channels of the tetrode. *ChannelIndex* objects contain methods for spike detection, sorting, and for interfacing with the *sortTool* GUI (see GUI folder). Although not all recording conditions may involve grouped electrodes, one should still associate spatially isolated electrodes with their own *ChannelIndex* instances for subsequent spike detection and sorting, as Electrode objects (below) do not have these capabilities.
 
 *Parents:* Block
 
@@ -33,28 +30,28 @@ A sister class to the *ChannelIndex*, the *Epoch* class organizes raw or process
 *Children:* Signal, Spikes
 
 #### Electrode
-The *Electrode* class is a container for tying *Signal* and *Spikes* objects recoreded from the same, single channel. The *Electrode* object can contain multiple *Spikes* and *Signal* objects (i.e. each pointing to a different *Epoch*), and can also belong to multiple *ChannelIndex* objects (as in a dense multi-electrode array where every K-neighboring channels are considered a group). Note that while *Electrode* object contains methods for pulling out the spike waveforms and raw voltage traces contained in their *Spikes* and *Signal* children, it cannot perform spike sorting or detection as, in general, such functionality is better suited to parallelization across multiple channels. Thus, one must ensure an *Electrode* is associated with 1 or more *ChannelIndex* objects for spike analysis.
+The *Electrode* class is a container for tying *Signal* and *Spikes* objects recoreded from the same, single channel. The *Electrode* object can contain multiple *Spikes* and *Signal* objects (i.e. each pointing to a different *Epoch*), and can also belong to multiple *ChannelIndex* objects (as in a dense multi-electrode array where K-neighboring channels are considered a group). Note that while an *Electrode* object contains methods for pulling out the spike waveforms and raw voltage traces contained in their *Spikes* and *Signal* children, it cannot perform spike sorting or detection as, in general, such functionality is better suited to parallelization across multiple channels. Thus, one must ensure an *Electrode* is associated with 1 or more *ChannelIndex* objects for spike analysis.
 
 *Parents:* ChannelIndex, Block
 
 *Children:* Signal, Spikes
 
 #### Neuron
-A *Neuron* object represents a (putatively) isolated neuron and its associated *Spike* children (spike times and voltage waveforms). *Neuron* objects are assigned unique identifiers for each *ChannelIndex* independently. Thus, more than 1 *Neuron* with a certain ID may exist within the entire *Block* framework, however no two *Neuron* objects will have identical IDs and the same *ChannelIndex* parent. *Spikes* across all *Epochs* are associated with a particular *Neuron*, and under certain spike-sorting routines (i.e. EM-GMM, EM-TMM), that *Neuron* object will contain a working model of the low-dimensional spike-waveform distribution, allowing for the addition of future spikes.   
+A *Neuron* object represents a (putatively) isolated neuron and its associated *Spikes* children (spike times and voltage waveforms). *Neuron* objects are assigned unique identifiers for each *ChannelIndex* independently. Thus, more than 1 *Neuron* with a certain ID may exist within the entire *Block* framework, however no two *Neuron* objects will have identical IDs and the same *ChannelIndex* parent. *Spikes* across all *Epochs* are associated with a particular *Neuron*, and under certain spike-sorting routines (i.e. EM-GMM, EM-TMM), that *Neuron* object will contain a working model of the low-dimensional spike-waveform distribution, allowing for the addition of future spikes.   
 
 *Parents:* ChannelIndex
 
 *Children:* Spikes
 
 #### Signal
-Raw and/or processed, continuous voltage traces are associated with a particular *Signal* object, itself contained within an *Electrode*. Multiple *Signal* objects within a single *Electrode* may exist, as in the case of multiple segments of data extracted from the entire recording. *Signals* contain no children, and have limited functionality such as filtering, resampling, and noise estimation. However, by containing continuous data within a *Signal* object, one may reference or pass such data freely between variables without the overhead of copying large vectors.
+Raw and/or processed, continuous voltage traces are associated with a particular *Signal* object, itself contained within an *Electrode*. Multiple *Signal* objects within a single *Electrode* may exist, as in the case of multiple segments of data extracted from the entire recording. A *Signal* contains no children, and has functions including filtering, resampling, and noise estimation. By containing continuous data within a *Signal* object, one may reference or pass such data freely between variables without the overhead of copying large vectors.
 
 *Parents:* Electrode, Epoch
 
 *Children:* n/a
 
 #### Spikes
-Like the *Signal* class, the *Spikes* class has no children, but contains the raw voltage waveforms and times of action potentials detected from sister *Signal* objects. These *Spike* objects are contained within parent *Neuron* and *Epoch* objects, which makes facilitates clean organization and efficient retreival and analysis of neural firing patterns. *Spikes* are automatically created when running the spike detection method of the *ChannelIndex* object, provided there are *Signal* and *Electrode* objects to detect spikes from. Further, unsorted *Spike* objects will be automatically deleteed and re-instantiated with sorted waveforms belonging to particular *Neuron* parents after running the spike-sorting method of the *ChannelIndex* object. Thus, one needn't worry about keeping track of which spike waveforms and times belong to particular neurons as the list of neurons grows, as this is taken care of intuitively and automatically.
+Like the *Signal* class, the *Spikes* class has no children, but contains the raw voltage waveforms and times of action potentials detected from sister *Signal* objects. These *Spike* objects are contained within parent *Neuron* and *Epoch* objects, which facilitates clean organization and efficient retreival and analysis of neural firing patterns. *Spikes* are automatically created when running the spike detection method of the *ChannelIndex* object, provided there are *Signal* and *Electrode* objects to detect spikes from. Further, unsorted *Spike* objects will be automatically deleted and re-instantiated with the appropriate sorted waveforms belonging to new *Neuron* parents after running the spike-sorting method of the *ChannelIndex* object. Thus, one needn't worry about keeping track of which spike waveforms and times belong to particular neurons as the list of neurons grows, as this is taken care of intuitively and automatically.
 
 *Parents:* Neuron, Epoch
 
