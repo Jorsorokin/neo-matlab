@@ -19,8 +19,6 @@ function mteSignals = MTEO( X,varargin )
 %
 % In addition, this function applies a smoothing hamming window of length
 % 4k+1 to each signal to eliminate noise.
-% 
-% Refer to ___ for details
 %
 %               >>> INPUTS >>>
 % X:
