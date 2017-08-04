@@ -30,11 +30,11 @@ A sister class to the *ChannelIndex*, the *Epoch* class organizes raw or process
 *Children:* Signal, Spikes
 
 #### Electrode
-The *Electrode* class is a container for tying *Signal* and *Spikes* objects recoreded from the same, single channel. The *Electrode* object can contain multiple *Spikes* and *Signal* objects (i.e. each pointing to a different *Epoch*), and can also belong to multiple *ChannelIndex* objects (as in a dense multi-electrode array where K-neighboring channels are considered a group). Note that while an *Electrode* object contains methods for pulling out the spike waveforms and raw voltage traces contained in their *Spikes* and *Signal* children, it cannot perform spike sorting or detection as, in general, such functionality is better suited to parallelization across multiple channels. Thus, one must ensure an *Electrode* is associated with 1 or more *ChannelIndex* objects for spike analysis.
+The *Electrode* class is a container for *Signal* objects recoreded from the same, single channel. The *Electrode* object can contain multiple *Signal* objects (i.e. each pointing to a different *Epoch*), and can also belong to multiple *ChannelIndex* objects (as in a dense multi-electrode array where K-neighboring channels are considered a group). Note that while an *Electrode* object contains methods for pulling out the spike waveforms and raw voltage traces associated with that electrode, it cannot perform spike sorting or detection as, in general, such functionality is better suited to parallelization across multiple channels. Thus, one must ensure an *Electrode* is associated with 1 or more *ChannelIndex* objects for spike analysis.
 
 *Parents:* ChannelIndex, Block
 
-*Children:* Signal, Spikes
+*Children:* Signal
 
 #### Neuron
 A *Neuron* object represents a (putatively) isolated neuron and its associated *Spikes* children (spike times and voltage waveforms). *Neuron* objects are assigned unique identifiers for each *ChannelIndex* independently. Thus, more than 1 *Neuron* with a certain ID may exist within the entire *Block* framework, however no two *Neuron* objects will have identical IDs and the same *ChannelIndex* parent. *Spikes* across all *Epochs* are associated with a particular *Neuron*, and under certain spike-sorting routines (i.e. EM-GMM, EM-TMM), that *Neuron* object will contain a working model of the low-dimensional spike-waveform distribution, allowing for the addition of future spikes.   
