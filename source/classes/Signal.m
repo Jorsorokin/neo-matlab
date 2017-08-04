@@ -7,6 +7,7 @@ classdef Signal < Container
         nPoints
         fs
         electrode = [];
+        chanInd = [];
         epoch = NaN;
     end
 
@@ -40,6 +41,7 @@ classdef Signal < Container
             %   epoch - the parent epoch #
             %
             % methods
+            %   plot
             %   filter
             %   resample
             %   estimateNoise
@@ -66,11 +68,62 @@ classdef Signal < Container
                     if isa( class( parent ),'Epoch' )
                         self.epoch = parent.epochNum; % add the Epoch                       
                     else
-                        self.electrode = parent.electrodeNum; % add the ChannelIndex 
+                        self.electrode = parent.electrodeNum; % add the Electrode
+                        self.chanInd(end+1) = parent.chanInd;
                     end
                 otherwise
                     error( 'Only Epoch or ChannelIndex objects are valid parents' );
             end
+        end
+
+        function plot( self )
+            % plot( self )
+            %
+            % plots the voltage trace contained in this Signal, and any 
+            % spikes associated with the signal as '.' color-coded 
+            % by the Neuron
+
+            % get the epoch parent, if any
+            if ~isnan( self.epoch )
+                ep = self.getParent( 'Epoch' );
+                start = ep.startTime;
+                stop = ep.stopTime;
+                event = ep.eventTime;
+            else
+                start = 0;
+                stop = self.nPoints / self.fs;
+                event = [];
+            end
+
+            % plot the voltage against time & any event
+            time = linspace( start,stop,self.nPoints );
+            plot( time,self.voltage,'color',[.85 .85 .85] );
+            hold on;
+            if ~isempty( event )
+                plot( [event,event],[min( self.voltage ),max( self.voltage )],'w--' );
+            end
+
+            % plot the spikes on top of the voltage, if any
+            if ~isnan( self.epoch )
+                [~,times,~,neuronID,chanInd] = self.getParent( 'Electrode' ).getSpikes( self.epoch );
+                uniqueID = unique( neuronID );
+                uniqueChanInd = unique( chanInd );
+                cmap = colormap( jet(numel( uniqueID )) ); % color signifies neuron ID
+                markers = {'.','x','o','^','s'}; % marker type signifies channelindex
+                for id = uniqueID
+                    for ch = 1:numel( uniqueChanInd )
+                        spikes = times( ismember( neuronID,id) & ismember( chanInd,uniqueChanInd(ch) ) );
+                        scatter( spikes + start,self.voltage(round( spikes*self.fs )),80,markers{ch} );
+                    end
+                end
+            end
+
+            % clean up
+            set( gca,'tickdir','out','box','off','color','k' );
+            ylabel( self.units );
+            xlabel( 'time (s) ');
+            title( sprintf( 'Signal %i from Electrode %i', self.epoch,self.electrode ) );
+            axis tight
         end
 
 

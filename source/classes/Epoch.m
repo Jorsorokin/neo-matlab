@@ -60,20 +60,6 @@ classdef Epoch < Container
             %   stateSpace
             %   
             %       * see also methods in the Container class
-            %
-            % Examples:
-            %
-            %   % create two Epochs, each a specific stimulus and of
-            %   % varying lengths.
-            %   startTimes = [12, 44];
-            %   endTimes = [20, 48];
-            %   events = [16, 46];
-            %   names = {'stim1','stim2'};
-            %   for j = 1:2
-            %       epoch(j) = Epoch( startTimes(j),endTimes(j),j );
-            %       epoch(j).name = names{j};
-            %       epoch(j).eventTime = events(j);
-            %   end
 
             self.startTime = startTime;
             self.stopTime = stopTime;
@@ -122,53 +108,64 @@ classdef Epoch < Container
         
         
         function car( self,varargin )
-            % car( self,(IDX) )
+            % car( self,(electrodes) )
             % Subtracts the common average reference (CAR) from voltages in
             % each "Signal" object, in place.
             %
-            % loop over the "Signal" objects specified by the indices "IDX"
-            % and for each, subtract the mean of all others. This is a
-            % virtual reference method to eliminate common noise among
-            % channels for the given Epoch. By default, "IDX" will include
+            % loop over the "Signal" objects specified by the indices "electrodes"
+            % and get the mean of the voltages from all others that do not belong
+            % to the same ChannelInde group(s). Then, subtract each mean from each 
+            % signal
+            %
+            % This is a virtual reference method to eliminate common noise among
+            % channels for the given Epoch. By default, "electrodes" will include
             % all "Signal" objects that are children of the current Epoch.
-
-            % get the "Signal" children, if any
-            signals = self.getChild( 'Signal' );
-            if isempty( signals )
-                error( 'No signals found' );
-            end
             
             % check inputs
             if nargin > 1 && ~isempty( varargin{1} )
-                IDX = varargin{1};
+                electrodes = varargin{1};
             else
-                IDX = 1:numel( signals );
+                electrodes = 1:numel( self.nSignals );
             end
             
+            % pull out the signals
+            signals = self.getChild( 'Signal',electrodes )
+            if numel( signals ) == 0
+                disp( 'No signals from specified electrodes available' );
+                return;
+            end
+
             % create an index reference for extracting the right signals
-            indices = false( 1,numel( signals ) );
-            indices(IDX) = true;
+            nSigs = numel( signals );
+            indices = true( 1,nSigs );
             
             % preallocate our reference matrix
-            CAR = zeros( signals(IDX(1)).nPoints,numel( IDX ) );
+            CAR = zeros( signals(1).nPoints,nSigs );
+
+            % get all the ChannelIndex IDs associated with each signal
+            allChInd = {signals.chanInds}; % each cell contains channelindex numbers for that signal
             
             % loop over the signal objects defined by IDX
             count = 0;
-            for i = IDX
+            for i = 1:nSigs
                 count = count+1;
-                indices(i) = false;
+
+                % find Signals that are associated with a common channelindex
+                commonChanInd = cell2mat( cellfun( @(x),...
+                    any( ismember( x,signals(i).chanInd ) ),allChInd,'un',0 ) );
+                indices(commonChanInd) = false;
                 
-                % get mean voltage waveforms 
+                % get mean voltage waveforms across all other signals
                 CAR(:,count) = mean( [signals(indices).voltage],2 );
                 
-                indices(i) = true;
+                indices(commonChanInd) = true;
             end 
             
             % subtract the CAR from the signal voltages
             count = 0;
-            for i = IDX
+            for i = 1:nSigs
                 count = count+1;
-                signals(i).voltage = bsxfun( @minus,signals(i).voltage,CAR(:,count) );
+                signals(i).voltage = signals(i).voltage - CAR(:,count) );
             end
         end
 

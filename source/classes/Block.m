@@ -54,19 +54,6 @@ classdef Block < Container
             %   getNeurons
             %   
             %       * see also methods in the Container class
-            %
-            % Examples:
-            % 
-            % % create a Block instance, add Epoch and ChannelIndex
-            % % objects as children
-            % file = 'myfile_trial1';
-            % date = '12-May-2017';
-            % condition = 'no stimulus';
-            % filepath = '/Users/shared/EphysFiles';
-            % block = Block( file,date,condition,filepath );
-            % block.addChild( Epoch( 5,10,1 ) );
-            % block.addChild( ChannelIndex( [1,2,3],[5,7,3],1 ) );
-            % block.print(); % print a summary to the screen
 
             self.filename = filename;
             self.date = date;
@@ -128,8 +115,14 @@ classdef Block < Container
             % =========================================
             if ~isempty( chanind )                
                 chanind(~isvalid( chanind )) = [];
+                for j = 1:numel( chanind )
+                    electrodeID = [chanind(j).getChild( 'Electrode' )];
+                    chanind(j).nElectrodes = numel( electrodeID );
+                    chanind(j).chanID = electrodeID;
+                end
             end
             self.nChanInds = numel( chanind );
+            % =========================================
             
             % check validity & update: Electrode
             % ==================================
@@ -137,12 +130,17 @@ classdef Block < Container
                 nSig = 0;
                 for j = 1:numel( electrode )
                     nSig = nSig + electrode(j).nSignals;
+                    for sig = 1:electrode(j).nSignals
+                        signal = electrode(j).getChild( 'Signal',j );
+                        signal.chanInd = electrode(j).chanInd;
+                    end
                 end
                 self.nSignals = nSig;
             else
                 self.nSignals = 0;
             end
             self.nElectrodes = numel( electrode );
+            % =========================================
 
             % check validity & update: Epoch
             % ==============================
@@ -163,6 +161,7 @@ classdef Block < Container
                 end
             end
             self.nEpochs = numel( epoch );
+            % =========================================
 
             % check validity & update: Neuron
             % ==============================
@@ -181,6 +180,7 @@ classdef Block < Container
                     end
                 end  
             end
+            % =========================================
         end
         
         

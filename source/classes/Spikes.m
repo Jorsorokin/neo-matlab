@@ -1,7 +1,6 @@
 classdef Spikes < Container
     
     properties
-        electrode = [];
         epoch = NaN;
         unitID = NaN;
         chanInd = NaN;
@@ -35,11 +34,9 @@ classdef Spikes < Container
             %
             % Parents:
             %   Neuron
-            %   Electrode
             %   Epoch
             %
             % Properties:
-            %   electrode - the parent electrode(s)
             %   epoch - the parent Epoch number
             %   unitID - the parent Neuron ID
             %   chanInd - the associated ChannelIndex
@@ -71,7 +68,7 @@ classdef Spikes < Container
         
         function addParent( self,parent )
             switch class( parent )
-                case {'Neuron','Electrode','Epoch'}
+                case {'Neuron','Epoch'}
                     addParent@Container( self,parent );
                     if isa( class( parent ),'Neuron' )
                         self.unitID = parent.ID; % add the associated unit ID
@@ -79,13 +76,9 @@ classdef Spikes < Container
                         self.chanInd = parent.chanInd;
                     elseif isa( class( parent ),'Epoch' )
                         self.epoch = parent.epochNum; % add the epoch 
-                    else
-                        self.electrode(end+1) = parent.electrodeNum;
-                        parent.nSpikes = parent.nSpikes + self.nSpikes;
-                        self.chanInd = parent.chanInd;
                     end
                 otherwise
-                    error( 'Only Epoch, Electrode, and Neuron objects are valid parents' );
+                    error( 'Only Epoch and Neuron objects are valid parents' );
             end
         end
         

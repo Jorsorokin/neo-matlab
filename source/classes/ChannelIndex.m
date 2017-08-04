@@ -48,6 +48,7 @@ classdef ChannelIndex < Container
             %
             % Methods:
             %   getSignals
+            %   waveDenoise
             %   detectSpikes
             %   sortSpikes
             %   sortGUI
@@ -78,6 +79,7 @@ classdef ChannelIndex < Container
                     case 'Neuron'
                         self.nUnits = self.nUnits + 1;
                         child(j).chanInd = self.chanIndNum;
+                        child(j).nChan = self.nElectrodes;
                 end
                 addChild@Container( self,child(j) );
             end  
@@ -110,6 +112,47 @@ classdef ChannelIndex < Container
                 signals = [signals,electrodes(j).getChild( 'Signal' )];
             end
         end
+
+
+        function waveDenoise( self,wLevel,wType )
+            % waveDenoise( self,wLevel,wType )
+            %
+            % denoises the signals contained within all child Electrodes
+            % using multi-signal wavelet denoising.
+            % 
+            % wLevel equals the wavelet decomposition level desired (lower
+            % = less smoothing), and wType equals the wavelet to use.
+            %
+            % Note, this function will not work if the voltages contained within 
+            % the various "Signal" children across Electrodes have different 
+            % sampling rates and/or number of points. Thus, for each Epoch,
+            % one must ensure the voltages have not been filtered differently 
+            % for the various electrodes.
+            
+            % get all Signal objects associated with this channelindex
+            signals = self.getSignals();
+            epochs = [signals.epoch]; 
+            uniqueEpochs = unique( epochs );
+
+            % loop over unique epochs
+            for ep = uniqueEpochs
+
+                % pull out the appropriate signals
+                theseSignals = signals.findObj( 'Epoch',ep ); 
+                voltage = [theseSignals.voltage];
+
+                % get the multi-signal wavelet decomposition
+                dec = mdwtdec( 'c',voltage,wLevel,wType );
+                
+                % denoise the decomposition using multi-resolution
+                voltage = mswden( 'den',dec,'rigrsure','mln','s' );
+
+                % now add voltages back to their parent signals
+                for j = 1:numel( theseSignals )
+                    theseSignals(j).voltage = voltage(:,j);
+                end
+            end
+        end
         
         
         function detectSpikes( self,thresh,artifact )
@@ -127,8 +170,8 @@ classdef ChannelIndex < Container
             % self.sortSpikes()
             
             % find all electrodes in this group
-            electrode = self.getChild( 'Electrode' );
-            if isempty( electrode )
+            electrodes = self.getChild( 'Electrode' );
+            if isempty( electrodes )
                 disp( 'No electrode(s) available' );
                 return;
             end
@@ -141,8 +184,8 @@ classdef ChannelIndex < Container
 
             % get their epochs 
             epochNums = [signals.epoch]; 
-            if ~any( isnan( epochNums ) ) % i.e. no Epoch class instances
-                epochNums = 1:numel( epochNums );
+            if any( isnan( epochNums ) ) % i.e. no Epoch class instances
+                epochNums = 1:numel( signals );
             end
             uniqueEpochs = unique( epochNums );
             
@@ -155,7 +198,9 @@ classdef ChannelIndex < Container
 
             % Spike Detection
             % ==================================================================
+            fprintf( 'Detecting spikes across epochs' )
             for ep = 1:numel( uniqueEpochs )
+                fprintf( '.' );
                 
                 % get the voltage traces associated with the current epoch & filter for spike
                 thisEpoch = ismember( epochNums,uniqueEpochs( ep ));
@@ -175,23 +220,19 @@ classdef ChannelIndex < Container
                 if ~isempty( E )
                     
                     % find the previous spikes associated with all Neuron objects in this ChannelIndex
-                    if ~isempty( N )
-                        allSpikes = E.getChild( 'Spikes' );
-                        for neuron = 1:numel( N )
-                            prevSpikeInds = find( ismember( allSpikes,N(neuron).getChild( 'Spikes' ) ) );                        
-                            E.removeChild( 'Spikes',prevSpikeInds ); % remove previous spikes
-                        end
+                    allSpikes = E.getChild( 'Spikes' );
+                    for neuron = 1:numel( N )
+                        prevSpikeInds = find( ismember( allSpikes,N(neuron).getChild( 'Spikes' ) ) );                        
+                        E.removeChild( 'Spikes',prevSpikeInds ); % remove previous spikes
                     end
                     E.addChild( Sp(ep) ); % add the new spikes
                 end
             end
+            fprintf( '\n' );
             % ==================================================================
             
-            % now add the spikes to the Electrodes and Neuron parents
+            % now add the spikes to the Neuron parent
             self.getChild( 'Neuron' ).addChild( Sp ); 
-            for j = 1:self.nElectrodes
-                electrodes(j).addChild( Sp );
-            end
         end
         
 
@@ -243,7 +284,7 @@ classdef ChannelIndex < Container
                 [v,t,ep] = neurons.findobj('ID',ind).getSpikes();
                 
                 % concatenate the spiketimes into one long vector
-                t = reshape( t,1,size(t,1)*size(t,2) );
+                t = reshape( t,1,numel( t ) );
                 t(isnan(t)) = [];
                 
                 % add to sptm/spsnip/epochnum

@@ -126,11 +126,11 @@ classdef Neuron < Container
             nSp = [child.nSpikes];
             nEpoch = numel( child );
             times = nan( max( nSp ),nEpoch );
-            snips = nan( npoints,self.nSpikes,self.nChan );
-            epNum = uint16( zeros( 1,self.nSpikes ) );
-            counter = 0;
+            snips = nan( npoints,sum( nSp ),self.nChan );
+            epNum = uint16( zeros( 1,sum( nSp ) ) );
             
             % loop over Spike objects
+            counter = 0;
             for i = 1:numel( child )
                 snips(:,counter+1:counter+nSp(i),:) = child(i).voltage;
                 times(1:nSp(i),i) = child(i).times;
@@ -243,6 +243,8 @@ classdef Neuron < Container
             % plot the raster according to the pre/post time and starting
             % time provided
             PlotRasters( sptm,start,pre,post );
+            suptitle( sprintf( 'Neuron %i, ChannelIndex %i',...
+                                self.ID,self.chanInd ) );
         end
         
         
@@ -330,7 +332,8 @@ classdef Neuron < Container
             % specified by the inputs "columns1" and "column2".
             % Must have already sorted spikes for this function to work
             if isnan( self.features )
-                error( 'Must run spike sorting first! See "ChannelIndex" for more info.' );
+                disp( 'Must run spike sorting first! See "ChannelIndex" for more info.' );
+                return
             end
             
             % plot the features
