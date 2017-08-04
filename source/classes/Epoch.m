@@ -56,6 +56,7 @@ classdef Epoch < Container
             %   addEvent
             %   car (common average reference)
             %   rmMovement
+            %   rmRedundantSpikes
             %   plotSignals
             %   stateSpace
             %   
@@ -125,11 +126,11 @@ classdef Epoch < Container
             if nargin > 1 && ~isempty( varargin{1} )
                 electrodes = varargin{1};
             else
-                electrodes = 1:numel( self.nSignals );
+                electrodes = 1:self.nSignals;
             end
             
             % pull out the signals
-            signals = self.getChild( 'Signal',electrodes )
+            signals = self.getChild( 'Signal',electrodes );
             if numel( signals ) == 0
                 disp( 'No signals from specified electrodes available' );
                 return;
@@ -143,7 +144,7 @@ classdef Epoch < Container
             CAR = zeros( signals(1).nPoints,nSigs );
 
             % get all the ChannelIndex IDs associated with each signal
-            allChInd = {signals.chanInds}; % each cell contains channelindex numbers for that signal
+            allChInd = {signals.chanInd}; % each cell contains channelindex numbers for that signal
             
             % loop over the signal objects defined by IDX
             count = 0;
@@ -151,7 +152,7 @@ classdef Epoch < Container
                 count = count+1;
 
                 % find Signals that are associated with a common channelindex
-                commonChanInd = cell2mat( cellfun( @(x),...
+                commonChanInd = cell2mat( cellfun( @(x)...
                     any( ismember( x,signals(i).chanInd ) ),allChInd,'un',0 ) );
                 indices(commonChanInd) = false;
                 
@@ -165,7 +166,7 @@ classdef Epoch < Container
             count = 0;
             for i = 1:nSigs
                 count = count+1;
-                signals(i).voltage = signals(i).voltage - CAR(:,count) );
+                signals(i).voltage = signals(i).voltage - CAR(:,count);
             end
         end
 
@@ -181,6 +182,10 @@ classdef Epoch < Container
             % and this is an attempt to remove those artifacts 
             % from spike detection. You can set the max correlation 
             % coefficient allowed before elimination (default = 0.8)
+            %
+            % Caveats: with highly-sampled recordings (i.e. dense 
+            % microelectrodes or tetrodes), true spikes may appear on multiple
+            % channels. 
 
             % check inputs
             if nargin < 2 || isempty( varargin{1} )
@@ -200,12 +205,7 @@ classdef Epoch < Container
             end
 
             % create a big matrix of the raw signals
-            rawdata = zeros( size( signals(1).voltage,1 ),self.nSignals );
-            counter = 1;
-            for i = 1:numel( signals )
-                rawdata(:,counter:counter+signals(i).nSignals-1) = signals(i).voltage;
-                counter = counter + signals(i).nSignals;
-            end
+            rawdata = [signals.voltage]; 
             FS = signals(1).fs;
 
             % create our pre/post # of samples to extract for each spike
@@ -256,6 +256,121 @@ classdef Epoch < Container
             self.nSpikes = newSpikeCount;
         end
         
+
+        function rmRedundantSpikes( self )
+            % rmRedundantSpikes( self )
+            %
+            % removes the redundant spike times and waveforms that were 
+            % detected multiple times from different ChannelIndex objects
+            %
+            % This is an issue with dense, multi-electrode arrays where 
+            % every K-neighbors to any ith electrode are considered a 
+            % channel group. Thus, any electrode may be associated wtih multiple
+            % ChannelIndex objects, and thus the same spikes may appear in these
+            % more than once. 
+            %
+            % Spikes are deemed redundant if: 
+            %   (a) the times of the action potentials are within +/- 0.5ms  
+            %       (i.e. within the refractory period)
+            %   (b) they originate from ChannelIndex objects with overlapping electrodes
+            %   (c) the shapes of the action potentials alligned to their 
+            %       peaks are highly overlapping ( >= 0.95 correlation )
+            %
+            % If any ith spike is deemed redundant, then by default the spike is
+            % is removed from Spike objects except for the one 
+            % in which it has the largest absolute voltage
+
+            % get the spikes
+            if self.nSpikes == 0
+                disp( 'No spikes available' );
+                return
+            end
+            
+            % get the associated channelindex & electrode numbers
+            spikes = self.getChild( 'Spikes' );
+            parentChanInd = [spikes.chanInd];
+            channelindex = self.getSibling( 'ChannelIndex','Block' );
+            channelindex = channelindex( ismember( [channelindex.chanIndNum],parentChanInd ));
+            electrodeNum = {channelindex.electrodes};
+            
+            % create our anonymous functions for checking redundant spikes
+            % ======================================================================
+            % (a) checks if any spike time in each Spikes object close to the spike time "t"
+            checkA = @(x,t) cellfun( @(c)(find( abs( c-t ) <= 0.0005 )),x,'un',0 ); 
+            
+            % (b) checks if any other Spikes objects associated with a common electrode 
+            checkB = @(x,ch) cellfun( @(c)(find( ismember( c,ch ) )),x,'un',0 );
+
+            % general check for emptyness
+            emptyCheck = @(x) ~cellfun( @isempty,x );
+            % ======================================================================            
+            
+            % get our presets for the looping
+            waveforms = nan( size( spikes(1).voltage,1 ),numel( spikes ) ); % to avoid creating matrices on each loop
+            indices = true( 1,numel( spikes ));
+            allSpikeTimes = {spikes.times};
+            totalRedundantSpikes = 0;
+
+            % now loop over Spikes objects and the spike times in each
+            for sp = 1:numel( spikes )
+                indices(sp) = false;
+                t = 1;
+                while t <= self.nSpikes
+                    oldSpikeCount = self.nSpikes;
+                    thisSpike = spikes(sp).times(t);
+
+                    % check for any common electrode parents AND nearby spike, 
+                    % and continue if none found
+                    nearbySpikes = checkA( allSpikeTimes,thisSpike ); 
+                    sameElectrode = checkB( electrodeNum,electrodeNum{sp} );
+                    redundant = emptyCheck( cellfun( @times,sameElectrode,nearbySpikes ) );
+                    if ~any( redundant(indices) )
+                        t = t+1; % move onto next spike time
+                        continue
+                    end
+
+                    % get the spike-waveforms for the potential redundant spike
+                    % from all of the associated Spikes objects
+                    redundant = find( redundant );
+                    for j = redundant
+                        waveforms(:,j) = squeeze( spikes(j).voltage(:,nearbySpikes{j},sameElectrode{j}) );
+                    end
+                    
+                    % compute the spike-waveform correlation coefficients and 
+                    % check for strong correlations.
+                    p = corrcoef( waveforms );
+                    if ~any( p(:,indices) >= 0.95 )
+                        t = t+1;
+                        continue
+                    end
+
+                    % find largest peak-trough (i.e range) and remove all others
+                    [~,keep] = max( range( waveforms ) );
+                    for j = redundant
+                        if j == keep
+                            continue;
+                        end
+                        spikes(j).times(nearbySpikes{j}) = [];
+                        spikes(j).voltage(:,nearbySpikes{j},:) = [];
+                        spikes(j).nSpikes = spikes(j).nSpikes - 1;
+                    end
+
+                    % if we didn't affect current spike object, update "t"
+                    if spikes(sp).nSpikes == oldSpikeCount
+                        t = t+1; 
+                    end
+
+                    totalRedundantSpikes = totalRedundantSpikes + 1;
+                    waveforms(:) = nan;
+                end
+            end
+
+            % finally update the block so everything is synched
+            fprintf( 'Eliminated %i redundant spikes across %i Spikes objects',...
+                totalRedundantSpikes,numel( spikes ) );
+            block.update();
+        end 
+
 
         function plotSignals( self )
             % plotSignals( self )

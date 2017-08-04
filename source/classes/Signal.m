@@ -3,11 +3,11 @@ classdef Signal < Container
     properties
         units = 'uV'
         voltage
+        fs
         duration
         nPoints
-        fs
-        electrode = [];
         chanInd = [];
+        electrode = [];
         epoch = NaN;
     end
 

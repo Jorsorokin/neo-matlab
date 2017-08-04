@@ -73,7 +73,7 @@ While much of the package was written by me, certain features were either inspir
 For further information on using this package for data extraction and organization, see the [various examples](docs/examples), and the detailed [GUI documentation](docs/GUI_manual.pdf)
 
 ## To Do:
-- [ ] method for eliminating common spikes detected across multiple ChannelIndex objects
+- [X] method for eliminating common spikes detected across multiple ChannelIndex objects
 - [ ] method for spike detection across all ChannelIndex objects
 - [ ] method for estimating best kernel for firing rates, and/or adaptive kernels
 - [ ] functions for clustering via Variational Bayes and EM-TMM in the sortTool GUI

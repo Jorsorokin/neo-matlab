@@ -52,7 +52,7 @@ classdef Block < Container
             %   update
             %   write
             %   getNeurons
-            %   
+            %
             %       * see also methods in the Container class
 
             self.filename = filename;
@@ -118,7 +118,7 @@ classdef Block < Container
                 for j = 1:numel( chanind )
                     electrodeID = [chanind(j).getChild( 'Electrode' )];
                     chanind(j).nElectrodes = numel( electrodeID );
-                    chanind(j).chanID = electrodeID;
+                    chanind(j).chanIDs = electrodeID;
                 end
             end
             self.nChanInds = numel( chanind );
@@ -131,7 +131,7 @@ classdef Block < Container
                 for j = 1:numel( electrode )
                     nSig = nSig + electrode(j).nSignals;
                     for sig = 1:electrode(j).nSignals
-                        signal = electrode(j).getChild( 'Signal',j );
+                        signal = electrode(j).getChild( 'Signal',sig );
                         signal.chanInd = electrode(j).chanInd;
                     end
                 end
@@ -216,7 +216,7 @@ classdef Block < Container
             end
         end
                 
-    end
-    
+    end % methods
+
 end
 
