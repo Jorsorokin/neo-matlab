@@ -122,6 +122,9 @@ classdef Neuron < Container
             end
             
             % preallocate vectors
+            if self.nChan == 0
+                self.nChan = size( child(1).voltage,3 );
+            end
             npoints = size( child(1).voltage,1 );
             nSp = [child.nSpikes];
             nEpoch = numel( child );
@@ -221,10 +224,11 @@ classdef Neuron < Container
             else
                 [N,edges] = histcounts( ISI,'Normalization','countdensity' );
             end
-            stairs( edges(1:end-1),N );
-            set( gca,'tickdir','out','box','off' );
+            s = stairs( edges(1:end-1),N );
+            set( s,'color',[0.85 0.85 0.85] );
             ylabel( 'count / bin width' );
             xlabel( 'ISI (s)' );
+            darkPlot( gcf );
         end
                 
         

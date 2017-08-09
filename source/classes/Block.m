@@ -116,23 +116,37 @@ classdef Block < Container
             if ~isempty( chanind )                
                 chanind(~isvalid( chanind )) = [];
                 for j = 1:numel( chanind )
-                    electrodeID = [chanind(j).getChild( 'Electrode' )];
+                    [electrodeID,electrodeIND] = [chanind(j).getChild( 'Electrode' )];
                     chanind(j).nElectrodes = numel( electrodeID );
-                    chanind(j).chanIDs = electrodeID;
+                    chanind(j).chanIDs = electrodeID; % the actual electrode IDs 
+                    chanind(j).channels = electrodeIND; % their location in the Block parent
                 end
             end
             self.nChanInds = numel( chanind );
             % =========================================
             
-            % check validity & update: Electrode
-            % ==================================
+            % check validity & update: Electrode & Signal
+            % ==========================================
             if ~isempty( electrode )
                 nSig = 0;
+                electrode(~isvalid( electrode )) = [];
                 for j = 1:numel( electrode )
                     nSig = nSig + electrode(j).nSignals;
+                    electrode(j).chanInd = [electrode(j).getParent( 'ChannelIndex' ).chanIndNum]; % all parent ChannelIndex 
                     for sig = 1:electrode(j).nSignals
                         signal = electrode(j).getChild( 'Signal',sig );
-                        signal.chanInd = electrode(j).chanInd;
+
+                        % check validity of Signal object
+                        if ~isempty( signal )
+                            if ~isvalid( signal )
+                                electrode(j).removeChild( 'Signal',sig );
+                                clear signal;
+                                continue;
+                            end
+                            signal.epoch = signal.getParent( 'Epoch' ).epochNum;
+                            signal.chanInd = electrode(j).chanInd; % the parent ChannelIndex
+                            signal.electrode = electrode(j).electrodeNum; % this electrode ID
+                        end
                     end
                 end
                 self.nSignals = nSig;
@@ -140,7 +154,7 @@ classdef Block < Container
                 self.nSignals = 0;
             end
             self.nElectrodes = numel( electrode );
-            % =========================================
+            % ===========================================
 
             % check validity & update: Epoch
             % ==============================
@@ -150,6 +164,11 @@ classdef Block < Container
                 % loop over spike objects, remove those that are not valid
                 for ep = 1:numel( epoch )
                     spikes = epoch(ep).getChild( 'Spikes' );
+                    signals = epoch(ep).getChild( 'Signal' );
+                    if ~isempty( signals )
+                        signals(~isvalid(signals)) = [];
+                    end
+                    epoch(ep).nSignals = numel( signals );
                     if ~isempty( spikes )
                         spikes(~isvalid( spikes )) = [];
                         for sp = 1:numel( spikes )

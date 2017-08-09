@@ -74,18 +74,10 @@ For further information on using this package for data extraction and organizati
 
 ## To Do:
 - [X] method for eliminating common spikes detected across multiple ChannelIndex objects
-- [ ] method for spike detection across all ChannelIndex objects
-- [ ] method for estimating best kernel for firing rates, and/or adaptive kernels
+- [X] method for spike detection across all ChannelIndex objects (i.e. [Masked EM](https://www.ncbi.nlm.nih.gov/pubmed/25149694))
+- [ ] method for estimating best kernel for firing rates, and/or [adaptive kernels](https://link.springer.com/article/10.1007/s10827-009-0180-4)
 - [ ] functions for clustering via Variational Bayes and EM-TMM in the sortTool GUI
-- [ ] method for visualizing the current heirarchy in the Block object (connected graph ?)
+- [ ] method for visualizing the current heirarchy in the Block object (i.e. [connected graph](http://mathworld.wolfram.com/ConnectedGraph.html))
 - [ ] dealing with different sorting parameters when updating the sortModel property of the Neuron object
 - [ ] function for online sorting / assigning new spikes to current Neuron objects
-
-
-
-
-
-
-
-
-
+- [ ] interfacing with MySQL for memory-efficient loading/saving and smart querying

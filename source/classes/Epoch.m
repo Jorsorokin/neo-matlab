@@ -360,6 +360,7 @@ classdef Epoch < Container
                         t = t+1; 
                     end
 
+                    % update the running count
                     totalRedundantSpikes = totalRedundantSpikes + 1;
                     waveforms(:) = nan;
                 end
@@ -399,15 +400,10 @@ classdef Epoch < Container
             end
             noise = noise / chidx * 10;
 
-            % loop over each channel group and individual signal and plot
-            for chidx = 1:nChIdx
-                data = sig(chidx).voltage;
-                multisignalplot( data - (noise*counter),sig(chidx).fs,cmap(chidx,:),noise );
-                counter = counter + sig(chidx).nSignals;
-            end 
+            % plot the signals
+            multisignalplot( [sig.voltage],sig(1).fs,[],noise );
             
             % clean up graph
-            set( gca,'tickdir','out','box','off','ytick',[],'yticklabel',[] );
             axis tight
             xlabel( 'time (s)' );
             title( sprintf( 'All signals for epoch %i',self.epochNum ) );
@@ -415,8 +411,11 @@ classdef Epoch < Container
             % now plot a vertical line indicating an event if one exists
             if ~isempty( self.eventTime )
                 yL = get(gca,'ylim');
-                plot( [self.eventTime-self.startTime, self.eventTime-self.startTime],yL,'k--','linewidth',2 );
+                plot( [self.eventTime-self.startTime, self.eventTime-self.startTime],yL,'w--','linewidth',2 );
             end  
+
+            % dark theme
+            darkPlot( gcf )
         end
 
 

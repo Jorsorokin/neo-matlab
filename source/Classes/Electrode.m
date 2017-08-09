@@ -53,8 +53,8 @@ classdef Electrode < Container
                     addChild@Container( self,child );
                     self.nSignals = self.nSignals + numel( child );
                     for j = 1:numel( child )
-                        child(j).electrode(end+1) = self.electrodeNum;
-                        child(j).chanInd(end+1) = self.chanInd; % adds the associated ChannelIndex
+                        child(j).electrode = self.electrodeNum;
+                        child(j).chanInd = [child(j).chanInd,self.chanInd]; % adds the associated ChannelIndex
                     end
                 otherwise
                     error( 'Only Signal objects are valid children' );
@@ -182,29 +182,32 @@ classdef Electrode < Container
             % get the epochs and create a time-matrix for plotting
             signals = self.getChild( 'Signal' );
             ep = self.getPartner( 'Epoch','Signal' );   
-            events = [ep.eventTime];             
-            fs = signals(1).fs;
+            if ~isempty( ep )
+                events = [ep.eventTime];
+            else
+                events = [];
+            end
             
             % get the voltage traces
             voltage = self.getVoltage();
+            fs = signals(1).fs;
 
             % plot the signal on the full time-scale
             gca; hold on;
-            [~,hL] = multisignalplot( voltage,fs);
+            [~,hL] = multisignalplot( voltage,fs );
             for i = 1:self.nSignals
 
                 % plot the epoch event as a small red dot
                 if ~isempty( events )
-                    scatter( events(i)-ep(i).startTime,max( hL(i).YData ),80,'k.' );
+                    scatter( events(i)-ep(i).startTime,max( hL(i).YData ),80,'r.' );
                 end
             end
 
             % clean up graph
-            set( gca,'tickdir','out','box','off' );
-            axis tight
             xlabel( 'time (s)' );
             ylabel( 'epoch' );
-            suptitle( sprintf( 'Electrode: %i, all Epochs',self.electrodeNum ) );             
+            suptitle( sprintf( 'Electrode: %i, all Epochs',self.electrodeNum ) );  
+            darkPlot( gcf );           
             hold off;
         end
         

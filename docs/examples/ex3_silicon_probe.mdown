@@ -1,0 +1,51 @@
+# Example 3: detecting and sorting neurons for dense micro-electrode arrays
+Traditional spike detection and sorting is normally run for individual electrodes or electrode groups (as we've seen), such as tetrodes. The very clearly-separated channels ensure the same neuron is very unlikely to be detected across different channel groups, and thus, detecting and sorting can commence independently for each group. However, this distinct topological constraint is blurred in the case of dense micro-electrode arrays, where every k-neighbors of the ith channel are considered a channel group, resulting in multiple channel groups with overlapping electrodes. Detection and sorting individually for each channel group makes little sense, as it is very likely that two or more channel groups will record action potentials produced by the same neurons.
+
+One way to get around this issue, is to run an automated search algorithm that detects and eliminates redundant spikes recorded across channel groups. Conservative criteria should be met so that spikes with similar shapes but of different origins are not eliminated. The *Epoch* class contains a method - `rmRedundantSpikes` - that searches through all spike waveforms in the *Spikes* objects associated with an instance of the *Epoch*, and removes an ith spike if (a) another spike in the current epoch occurs within 0.5 ms of the ith spike, (b) that spike is associate with a *ChannelIndex* object that shares a common electrode with the *ChannelIndex* parent of the ith spike, and (c) any correlation between the ith and jth spike across the various electrodes they belong to is > 0.95. 
+
+``` matlab
+% Let us first reference the various Epoch instances contained in our block
+epochs = block.getChild( 'Epoch' );
+
+% now we can loop over the epochs and for each, remove redundancy.
+% By default, all copies of any redundant spike are removed EXCEPT for 
+% the instance with the largest amplitude. 
+for ep = 1:block.nEpochs
+    epochs(ep).rmRedundantSpikes();
+end
+
+% because "block.update()" is called within "rmRedundantSpikes()", all of our 
+% objects will be correctly updated automatically
+```
+
+While slow, this method will help remove redundancy, and should ideally be run before any spike sorting. However, one issue that arises is the dependence on subjective criteria for spike removal. Further, although redundant spikes may be eliminated, our electrodes may still awkwardly belong to many *ChannelIndex* objects, making any subsequent electrode-specific analysis (i.e number of spikes detected, associated of neurons with electrodes, etc.) non-intuitive. A better method would be to use all electrodes simultaneously for detection and sorting, thus avoiding the need for arbitrary *ChannelIndex* assignment...
+
+``` matlab
+% Say we have 8 electrodes from a linear, electrode array. We will combine these into
+% one single *ChannelIndex* object, so that we may perform simultaneous spike detection.
+block.removeChild( 'ChannelIndex' ); % removes old ChannelIndex objects
+block.addChild( ChannelIndex( 1 ) ); % creates a new ChannelIndex, with ID = 1
+block.getChild( 'ChannelIndex' ).addChild( electrodes );
+```
+
+Now that we've placed our electrodes into a single ChannelIndex object, we will perform spike detection. The algorithm is a MATLAB-implementation of the [Masked EM algorithm](https://www.ncbi.nlm.nih.gov/pubmed/25149694). The Masked EM algorithm uses the spatio-temporal information of the recorded voltages across our continuous channels to create spatio-temporally "connected components" for each detected action potential, and "mask" channels not spatio-temporally connected. Thus, to perform the algorithm, we need to supply a channel map that has information regarding the spatial organization of the probe.
+
+``` matlab
+% Supply our channel map into the block parent, so that we may correctly line up our electrodes during spike detection
+block.chanMap = [1,3,5,7,2,4,6,8]; % wrap-around style, common among many silicon probes
+```
+
+Now we can run the masked-EM algorithm. The method for detection is contained in the *ChannelIndex* object, and is called via `detectSpikes_masked()`. For each component discovered by the algorithm (using 2-threshold floodfill & connected graphs), the spike onset is determined using the center of mass of all points and channels associated with this spike.
+
+``` matlab
+% set up the detection parameters
+lowThresh = 2.5; % for first part of flood-fill
+highThresh = 4; % for the second part
+
+% run the spike detection
+chanind = block.getChild( 'ChannelIndex' );
+chanind.detectSpikes_masked( lowThresh,highThresh );
+```
+
+
+

@@ -50,7 +50,7 @@ classdef Signal < Container
             
             self.voltage = voltage;
             self.fs = fs;
-            self.nPoints = size( voltage,1 );
+            self.nPoints = numel( voltage );
             self.duration = self.nPoints / self.fs;
         end
 
@@ -119,7 +119,7 @@ classdef Signal < Container
             end
 
             % clean up
-            set( gca,'tickdir','out','box','off','color','k' );
+            darkPlot( gcf );
             ylabel( self.units );
             xlabel( 'time (s) ');
             title( sprintf( 'Signal %i from Electrode %i', self.epoch,self.electrode ) );
@@ -141,6 +141,7 @@ classdef Signal < Container
             % resample the data as the ratio p/q
             self.voltage = resample( self.voltage,p,q );
             self.fs = self.fs * (p/q);
+            self.nPoints = size( self.voltage,1 );
         end
         
         

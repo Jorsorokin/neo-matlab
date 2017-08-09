@@ -89,7 +89,7 @@ classdef Spikes < Container
             % plot the spike waveforms. Can optionally specify an input
             % color as a second argument, and channels as third argument
             if nargin < 2 || isempty( varargin{1} )
-                col = 'w';
+                col = [0.85 0.85 0.85];
             else
                 col = varargin{1}; 
             end
@@ -107,11 +107,14 @@ classdef Spikes < Container
                 subplot( nchan,1,ch ); hold on;
                 %fillPlot( self.voltage(:,:,chans(ch))',time,'sd',[],[],col );
                 plot( time,self.voltage(:,:,chans(ch)),'color',col );
-                set( gca,'tickdir','out','box','off','xlim',[time(1) time(end)],'color','k' );
+                set( gca,'xlim',[time(1) time(end)] );
                 xlabel( 'time (ms)' );
                 ylabel( self.voltUnits );
                 title( sprintf( 'CH %i',chans(ch) ) );
             end
+
+            % convert to dark theme
+            darkPlot( gcf );
         end
         
         

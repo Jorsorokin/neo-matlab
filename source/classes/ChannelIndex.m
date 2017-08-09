@@ -548,7 +548,8 @@ classdef ChannelIndex < Container
             % only provide the spike waveforms from Neurons with those IDs (for further sorting).
             neurons = self.getChild( 'Neuron' );
             if isempty( neurons )
-                error( 'Must detect spikes first!' );
+                disp( 'Must detect spikes first!' );
+                return
             end
 
             % check input
@@ -562,9 +563,17 @@ classdef ChannelIndex < Container
             % determine if any spikes with this ID exist
             nNeurons = numel( neurons );
             if nNeurons == 0
-                error( 'No Neurons with provided IDs belong to this ChannelIndex' );
+                disp( 'No Neurons with provided IDs belong to this ChannelIndex' );
+                return
             end
 
+            % determine if any electrodes added
+            if self.nElectrodes == 0
+                disp( 'Mismatch between # of electrodes among data objects' );
+                disp( 'Check your data heirarhcy. Try running "block.update()"' );
+                return
+            end
+            
             % get the spikes from these neurons
             nSpikes = [neurons.nSpikes];
             nPts = size( neurons(1).getChild( 'Spikes',1 ).voltage,1 );
