@@ -176,7 +176,7 @@ for j = 1:numSegs
     % now we need to align the spike waveforms according to their center of mass.
     % since t_spike may not be an exact sample point, we use cubic spline interpolation surrounding this 
     % point, extract less data before/after this point than the original data, then down sample
-    snips{j} = get_aligned_spikes( spikes,times{j}-round( times{j} ) + preSamples*2,...
+    snips{j} = interpolate_spikes( spikes,times{j}-round( times{j} ) + preSamples*2,...
                                         fs,preSamples,postSamples );
     times{j} = (times{j} + start(j) - 1) / fs; % to make relative to the start of "data", not "seg"
 
