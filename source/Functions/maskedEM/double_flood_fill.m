@@ -26,6 +26,16 @@ function [snips,times,mask] = double_flood_fill( data,fs,varargin )
 %   scalar specifying the upper threshold to use for the flood fill agorithm.
 %   Default = 4 (times the SD of each channel)
 %
+% (maxPts):
+%   scalar specifying the max number of points for any connected component to be
+%   considered a valid spike. Anything longer than this is considered an artifact.
+%   Default = # of points equivalent to 2 ms 
+%
+% (maxChans):
+%   scalar specifying the maximum number of channels allowed per component.
+%   Components with too many connected channels are considered movement-related artifacts.
+%   Default = inf
+%
 %
 %                   <<< OUTPUTS <<<
 % snips:
@@ -33,17 +43,17 @@ function [snips,times,mask] = double_flood_fill( data,fs,varargin )
 %   and m = # of channels
 %
 % times:
-%   a p-dimensional vector specifying the peak time of the detected action potential
+%   a p-dimensional vector specifying the time of the detected action potential
 %
 % mask:
-%   an m x p matrix, where each element (i,j) is in the set [0,1]. The values are set
+%   an sparse matrix, where each element (i,j) is in the set [0,1]. The values are set
 %   depending on the threshold crossing of each ith channel for the jth spikes, as:
 %               0 : |(i,j)| < alpha
 %               1 : |(i,j)| > beta
 %       0 < x < 1 : alpha < |(i,j)| < beta
 %
-%           where "alpha" = lowThresh * SD_ch_k
-%           and "beta" = highThresh * SD_ch_k
+%           where "alpha" = lowThresh * SD( channel_i )
+%           and "beta" = highThresh * SD( channel_i )
 %
 %   Thus, for each spike j, a mask is computed for each channels depending on the peak 
 %   amplitude (i.e. negative voltage) of the ith spike on the ith channel. Channels not 
@@ -67,14 +77,13 @@ if numSegs * n_sub < n
     numSegs = numSegs + 1;
 end
 preSamples = floor( 0.0005 * fs);
-postSamples = floor( 0.0015 * fs);
+postSamples = floor( 0.001 * fs);
 totalSamples = postSamples + preSamples;
 snips = cell(1,numSegs);
 times = snips;
 mask = snips;
-kernel = [0 1 0; % eliminates isolated low-threshold crossings
-          1 0 1;
-          0 1 0];
+minPts = 2;
+maxPts = floor( 0.002 * fs ); % spikes > 2ms long considered artifacts
 
 % get the standard deviation estimate for each channel
 sd = zeros( 1,m );
@@ -82,31 +91,29 @@ for j = 1:10
     start = min( randi( numSegs,1 ), numSegs-1 ) * n_sub;
     sd = sd + median( abs( data(start:start+n_sub,:) ) ) / 0.6745;
 end
-sd = sd(p.chanMap) / j; % ordered according to our channel map
+sd = sd(p.chanMap)' / j; % ordered according to our channel map
 
 % create the start/stop vectors for each segment
 start = n_sub * (0:numSegs-1) + 1;
-stop = start + n_sub;
+stop = start + n_sub - 1;
 stop(end) = n; % avoids extracting more data than available
 
 % loop over data segments, find connected components via double ff algorithm
 for j = 1:numSegs
-    seg = data(start(j):stop(j),p.chanMap); % using p.chanMap ensures the channels are continuous. if not, isolated "spike islands" will occur
+    seg = data(start(j):stop(j),p.chanMap)'; % using p.chanMap ensures the channels are continuous. if not, isolated "spike islands" will occur
 
     % compute the low-threshold connected & adjacency matrix
     lowCheck = bsxfun( @gt,-seg,p.lowThresh*sd ); % low memory implementation
     highCheck = bsxfun( @gt,-seg,p.highThresh*sd ); 
-    connected = conv2( single( lowCheck ),kernel,'same' );
-    connected = lowCheck & connected > 0; % gets rid of self-adjacency (spot noise)
 
     % find the connected components among low-threshold crosses
-    components = bwconncomp( connected ); % finds connected components
+    components = bwconncomp( lowCheck ); % finds connected components
     labels = labelmatrix( components ); % creates a matrix for the components
 
     % find only those components that also have at least one high-threshold cross
     finalLabels = unique( labels(highCheck) );
     finalLabels(finalLabels == 0) = [];
-    %clear connected lowCheck highCheck components
+    clear lowCheck highCheck labels
 
     % now loop over these components & extract the spike waveform surrounding the peak of each
     counter = 1;
@@ -116,24 +123,29 @@ for j = 1:numSegs
     mask{j} = zeros( m,nComponents,'single' );
     spikes = nan( totalSamples*2,nComponents,m );
     sz = components.ImageSize;
-    for i = finalLabels
+    for i = finalLabels'
 
         % find points connected to this component
         thisLabel = components.PixelIdxList{i}; % equivalent to "find( labels == i )"
-        [pt,ch] = ind2sub( sz,thisLabel ); 
+        [ch,pt] = ind2sub( sz,thisLabel ); 
         pt = unique( pt );
         ch = unique( ch );
-        nPt = numel( ch ); 
-        nCh = numel( pt );
+        nPt = numel( pt ); 
+        nCh = numel( ch );
+
+        % skip if this component is too small or large, or too many channels
+        if nPt <= 2 || nPt >= p.maxPts || nCh >= p.maxChans
+            continue
+        end
 
         % create our mask for the ith component as:
         %  max_t{ psi(t,c) = min{ (-V(t,c) - alpha) / (beta - alpha), 1 } }
-        alpha = lowThresh * sd(ch);
-        beta = highThres * sd(ch);
+        alpha = p.lowThresh * sd(ch)';
+        beta = p.highThresh * sd(ch)';
         psi = zeros( nPt,nCh );
         for c = 1:nCh
             for t = 1:nPt
-                psi(t,c) = seg(pt(t),ch(c));
+                psi(t,c) = seg(ch(c),pt(t));
             end
         end
         psi = min( bsxfun( @rdivide,bsxfun( @minus,-psi,alpha ),(beta - alpha) ),1 );
@@ -144,16 +156,16 @@ for j = 1:numSegs
         %       t_spike = SUM{ t * psi^p } / SUM{ psi^p }
         %   where "p" is a power-weighting that determines alignment on spike peak 
         %   or center of mass (inf or 1, respectively). p = 2 is a good balance. 
-        t_spike = sum( sum( pt * psi.^2 ) ) / sum( sum( psi.^2 ) );
+        t_spike = sum( sum( pt .* psi.^2 ) ) / sum( sum( psi.^2 ) );
         closestPt = round( t_spike ); 
 
         % skip if this point is too close to the edge of the recording
         if closestPt - (preSamples*2) < 1 || closestPt + (postSamples*2) > n_sub
-            continue;
+            continue
         end
 
         % now that we have t_spike, use the closest actual sample point to pull out the spike across channels
-        spikes(:,counter,p.chanMap) = seg( closestPt-preSamples*2:t_spike+postSamples*2-1,: ); % back into original channel order as supplied
+        spikes(:,counter,p.chanMap) = seg( :,closestPt-preSamples*2:closestPt+postSamples*2 - 1 )'; % back into original channel order as supplied
         times{j}(counter) = t_spike; 
 
         % update our mask matrix for this component
@@ -164,32 +176,54 @@ for j = 1:numSegs
     % now we need to align the spike waveforms according to their center of mass.
     % since t_spike may not be an exact sample point, we use cubic spline interpolation surrounding this 
     % point, extract less data before/after this point than the original data, then down sample
-    snips{j} = get_aligned_spikes( spikes,times{j},preSamples,postSamples );
-    times{j} = (times{j} + start(j) - 1) * fs; % to make relative to the start of "data", not "seg"
+    snips{j} = get_aligned_spikes( spikes,times{j}-round( times{j} ) + preSamples*2,...
+                                        fs,preSamples,postSamples );
+    times{j} = (times{j} + start(j) - 1) / fs; % to make relative to the start of "data", not "seg"
 
     % finally, remove any nan's in our matrices
-    badInds = isnan( snips{j}(1,:,1) );
+    badInds = isnan( times{j} );
     if any( badInds )
         snips{j}(:,badInds,:) = [];
         times{j}(badInds) = [];
-        mask{j}(:,bad) = [];
+        mask{j}(:,badInds) = [];
     end
 end
+
+% now concatenate the data
+snips = [snips{:}];
+times = [times{:}];
+mask = sparse( double( [mask{:}] ) );
 
 
 %% HELPER FUNCTIONS
 function p = check_inputs()
-    names = {'chanMap','lowThresh','highThresh'};
-    defaults = {1:m,2,4};
 
-    p = input_parser;
-    for k = 1:numel( names )
-        p.addParameter( names{k},defaults{k} );
+    nOptionals = numel( varargin );
+    if nOptionals >= 1 && ~isempty( varargin{1} )
+        p.chanMap = varargin{1};
+    else 
+        p.chanMap = 1:m;
     end
-
-    p = p.parse( varargin{:} );
-    p = p.results;
+    if nOptionals >= 2 && ~isempty( varargin{2} )
+        p.lowThresh = varargin{2};
+    else 
+        p.lowThresh = 2;
+    end
+    if nOptionals >= 3 && ~isempty( varargin{3} )
+        p.highThresh = varargin{3};
+    else 
+        p.highThresh = 4;
+    end
+    if nOptionals >= 4 && ~isempty( varargin{4} )
+        p.maxPts = varargin{4};
+    else
+        p.maxPts = floor( 0.002 * fs);
+    end
+    if nOptionals >= 5 && ~isempty( varargin{5} )
+        p.maxChans = varargin{5};
+    else
+        p.maxChans = inf;
+    end
 end
-
 
 end

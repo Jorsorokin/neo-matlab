@@ -21,21 +21,23 @@ function snips = get_aligned_spikes( spikes,sptm,fs,prePts,postPts )
         error( 'amount of requested time surrounding spike is larger than supplied data' );
     end
     
+    warning( 'off' );
     % resample the spikes for the alignment / spline interpolation
     uPrePts = prePts * 4;
     uPostPts = postPts * 4;
     snips = nan( totalPts,nSp,nChan );
-    x = 1:n;
-    subSamp = (n*2-uPrePts:n*2+uPostPts-1);
+    xind = 1:n;
     for sp = 1:nSp
         try
-            xx = [linspace(1,sptm,n*2),linspace(sptm+udt,n,n*2)]; % the interpolant x-values, centered at "sptm"
-            upspikes = csaps( x,squeeze( spikes(:,sp,:) )',0.3,xx )'; % smooths the interpolant
+            x = linspace( sptm(sp)-prePts,sptm(sp)+postPts-1,totalPts );
+            xx = linspace( x(1),x(end),totalPts*4 );
+            upspikes = csaps( xind,squeeze( spikes(:,sp,:) )',0.3,xx )'; % smooths the interpolant
             
             % now down-sample back to original sampling rate & extract pre/post time around the spike
-            x2 = [linspace(sptm(sp)-prePts,sptm(sp),n/2),linspace(sptm(sp)+dt,sptm(sp)+postPts,n/2)];
-            snips(:,sp,:) = spline( xx(subSamp),upspikes(subSamp,:)',x2 )';
+            snips(:,sp,:) = spline( xx,upspikes',x )';
         catch
         end
     end
+    
+    warning( 'on' );
 end
