@@ -48,4 +48,3 @@ chanind.detectSpikes_masked( lowThresh,highThresh );
 ```
 
 
-

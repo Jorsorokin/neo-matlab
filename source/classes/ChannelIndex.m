@@ -3,6 +3,8 @@ classdef ChannelIndex < Container
     properties 
         chanIDs = [];
         channels = NaN;
+        chanMap = [];
+        chanDistances = [];
         chanIndNum
         nElectrodes = 0;
         nSignals = 0;
@@ -36,9 +38,13 @@ classdef ChannelIndex < Container
             %   Block
             %
             % Properties:
-            %   channels - the Electrodes from the list of all Electrodes (i.e.
+            %   channels - the indices from the list of all Electrodes (i.e.
             %              block.getChild( 'Electrode' ) )
-            %   chanIDs - the actual Electrode IDs
+            %   chanIDs - the actual Electrode IDs from the recording
+            %   chanMap - a 1 x self.nElectrodes vector specifying any corrected ordering of electrodes 
+            %   chanDistances - a 1 x self.nElectrodes vector specifying the distances between electrodes 
+            %                   i,j. This should be given in the order of the electrodes in this object, 
+            %                   NOT in the order of "chanMap"
             %   chanIndNum - the unique number for this ChannelIndex object
             %   nElectrodes - number of Electrode objects contained in this ChannelIndex
             %   nSignals - number of raw Signals provided to this ChannelIndex
@@ -155,20 +161,58 @@ classdef ChannelIndex < Container
         end
         
         
-        function detectSpikes( self,thresh,artifact )
-            % detectSpikes( self,thresh,artifact )
+        function detectSpikes( self,varargin )
+            % detectSpikes( self,(thresh,artifact,masked_detection) )
             %
             % find spike waveforms from the analog signals contained in the child 
             % "Electrode" object. If no such child exists, end the function.
             %
-            % stores the results of each detection into a "Spikes" object
-            % and also creates a "Neuron" object that contains a reference
-            % to the current ChannelIndex. The "Spikes" object references
-            % the appropriate "Epoch" and "Neuron" objects, and the
-            % waveforms contained in the "Spikes" objects across epochs can
-            % be sorted through the current object via:
-            % self.sortSpikes()
+            % Two different methods of spike detection are possible: summed multi-teager 
+            % energy operator (MTEO) across electrodes, or masked threshold crossing. 
+            % The former is useful for electrode configurations such as tetrodes,
+            % where each electrode group is very well isolated from otheres (and thus
+            % all electrodes in a ChannelIndex are assumed to record all detected spikes).
+            % 
+            % However in the case of dense multi-electrode arrays in which
+            % electrode grouping is less obvious, it may be invalid to assume each electrode
+            % recorded each spike. This later method uses the masked detection method, where
+            % for each ith spike, any channel with a voltage deflection less than a predefined 
+            % threshold are considered "masked". 
+            %
+            % The result of "detectSpikes()" is a "Spikes" object for each Epoch, 
+            % as well as a "Neuron" object with ID = 0 that contains a reference to the 
+            % current ChannelIndex. The "Spikes" object references the appropriate 
+            % "Epoch" and "Neuron" objects, and the waveforms contained in the "Spikes" 
+            % objects across epochs can be sorted through the current object via:
+            % self.sortSpikes(). In addition, if "masked_detection" is true, a sparse matrix
+            % indicating which channels contributed to which spike times will be stored into each 
+            % Spikes object under the "mask" variable (i.e. Spikes.mask).
+            %
+            % optional inputs:
+            %   thresh - the threshold for spike detection, as a multiple of the SD of the background
+            %            (default = 4)
+            %   artifact - the uV level to consider a spike as an artifact 
+            %              (default = 1000)
+            %   masked_detection - boolean indicating MTEO vs. masked spike detection
+            %                      (default = false)
             
+            % check inputs
+            if nargin > 1 && ~isempty( varargin{1} )
+                thresh = varargin{1};
+            else
+                thresh = 4; % * SD(voltage)
+            end
+            if nargin > 2 && ~isempty( varargin{2} )
+                artifact = varargin{2};
+            else
+               artifact = 1000; % uV
+            end
+            if nargin > 3 && ~isempty( varargin{3} )
+                masked_detection = varargin{3};
+            else
+                masked_detection = false; % MTEO vs. masked detection
+            end
+
             % find all electrodes in this group
             electrodes = self.getChild( 'Electrode' );
             if isempty( electrodes )
@@ -210,10 +254,22 @@ classdef ChannelIndex < Container
                 volt = reshape( smooth( medfilt1( volt,3 ) ),n,m ); % removes spot noise
 
                 % detect the spikes
-                [sptm,spsnip] = detectSpikes( volt,fs,thresh,1,artifact );
+                if masked_detection
+                    [sptm,spsnip] = detectSpikes( volt,fs,thresh,1,artifact );
+                    mask = [];
+                else
+                    maxPts = floor( 0.002 * fs ); % anything > 2ms is an artifact or overlapping spike
+                    maxChan = [];
+                    if ~isempty( self.chanDist )
+                        distMat = pdist2( self.chanDist,self.chanDist );
+                        maxChan = mean( sum( distMat <= 150 ) ); % average number of channels <= 150 um from one another
+                    end
+                    [spsnip,sptm,mask] = double_flood_fill( volt,fs,self.chanMap,thresh/2,thresh,maxPts,maxChan,artifact );
+                end
                 
                 % create a "Spikes" object using the found spikes
                 Sp(ep) = Spikes( sptm/fs,spsnip,fs );
+                Sp(ep).mask = mask;
                 
                 % get the Epoch if it exists
                 E = signals(find( thisEpoch,1 )).getParent( 'Epoch' );
@@ -231,7 +287,7 @@ classdef ChannelIndex < Container
             fprintf( '\n' );
             % ==================================================================
             
-            % now add the spikes to the Neuron parent
+            % now update the new Neuron object
             self.getChild( 'Neuron' ).addChild( Sp ); 
         end
         
@@ -383,8 +439,7 @@ classdef ChannelIndex < Container
             end
             
             % loop over the "spikes" objects. Find any that have the same "Epoch"
-            % parent and merge the times/voltages together into a new
-            % Spikes object
+            % parent and merge together into a new Spikes object
             allEpochs = ( [oldSpikes.epoch] );
             if any( allEpochs )
                 counter = 0;
@@ -397,8 +452,12 @@ classdef ChannelIndex < Container
                         % get the spike times/voltages and sort
                         sptm = [epochSpikes.times];
                         volt = [epochSpikes.voltage];
+                        mask = [epochSpikes.mask]; 
                         [sptm,idx] = sort( sptm ); % sort smallest -> largest
                         volt = volt(:,idx,:); % sort corresponding waveforms
+                        if ~isempty( mask )
+                            mask = mask(:,idx); % sort masked matrices
+                        end
                         epoch = epochSpikes(1).getParent( 'Epoch' ); % get the actual Epoch
                         fs = epochSpikes(1).fs;
                         
@@ -408,8 +467,9 @@ classdef ChannelIndex < Container
                         end
 
                         % create a new Spikes object with the concatenated
-                        % voltages/spike times. Add the corresponding epoc
+                        % voltages/spike times. Add the corresponding epoch
                         newSpikes(counter) = Spikes( sptm,volt,fs );
+                        newSpikes.mask = mask;
                         if ~isempty( epoch )
                             newSpikes(counter).addParent( epoch );
                         end
@@ -426,9 +486,14 @@ classdef ChannelIndex < Container
                 % oldSpikes objects and create a new Spikes object
                 sptm = [oldSpikes.times];
                 volt = [oldSpikes.voltage];
+                mask = [oldSpikes.mask]
                 [sptm,idx] = sort( sptm );
                 volt = volt(:,idx,:);
+                if ~isempty( mask )
+                    mask = mask(:,idx); % sort masked matrices
+                end
                 newSpikes = Spikes( sptm,volt,oldSpikes(1).fs );
+                newSpikes.mask = mask;
                 for sp = 1:numel( oldSpikes )
                     oldSpikes(sp).deleteSelf();
                 end
@@ -570,7 +635,7 @@ classdef ChannelIndex < Container
             % determine if any electrodes added
             if self.nElectrodes == 0
                 disp( 'Mismatch between # of electrodes among data objects' );
-                disp( 'Check your data heirarhcy. Try running "block.update()"' );
+                disp( 'Check your data heirarchy (try running "block.update()")' );
                 return
             end
             
@@ -624,6 +689,7 @@ classdef ChannelIndex < Container
             featureMethod = nan;
             sortModel = nan;
             projMatrix = nan;
+            mask = nan;
             if nargin > 5 && ~isempty( varargin{1} )
                 features = varargin{1};
             end
@@ -638,6 +704,9 @@ classdef ChannelIndex < Container
             end
             if nargin > 9 && ~isempty( varargin{5} )
                 projMatrix = varargin{5};
+            end
+            if nargin > 10 && ~isempty( varargin{6} )
+                mask = varargin{6};
             end
             
             % re format if necessary
@@ -697,6 +766,7 @@ classdef ChannelIndex < Container
             
             % (e) remove the "Spikes" associated with a previously
             % sorted Neuron that is now resorted
+            mask = cell( 1,numel( epoch ) );
             for ep = 1:numel( epoch )
                 oldSpikes = epoch(ep).getChild( 'Spikes' );
                 if ~isempty( oldSpikes )
@@ -735,9 +805,13 @@ classdef ChannelIndex < Container
                     % loop over epochs and create a new Spikes object. Add to
                     % it's appropriate epoch 
                    for ep = 1:numel( epoch )
+                        IDX = thisEpoch & thisID;
                         thisEpoch = ismember( trials,ep );
-                        Sp(ep) = Spikes( sptm(thisEpoch & thisID),...
-                            spsnips(:,thisEpoch & thisID,:),fs );
+                        Sp(ep) = Spikes( sptm(IDX),...
+                            spsnips(:IDX,:),fs );
+                        if ~isnan( mask )
+                            Sp(ep).mask = mask(:,IDX);
+                        end
                         epoch(ep).addChild( Sp(ep) );
                    end
 
@@ -774,6 +848,9 @@ classdef ChannelIndex < Container
                         prevSpikes(sp).voltage = [prevSpikes(sp).voltage,spsnips(:,IDX,:)];
                         prevSpikes(sp).times = [prevSpikes(sp).times,sptm(IDX)];
                         prevSpikes(sp).nSpikes = prevSpikes(sp) + sum( IDX );
+                        if ~isnan( mask )
+                            prevSpikes(sp).mask = [prevSpikes(sp).mask,mask(:,IDX)];
+                        end
                     end
                     
                     % remove probabilities, features, and kept spikes from

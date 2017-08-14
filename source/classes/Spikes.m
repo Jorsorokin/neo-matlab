@@ -11,6 +11,7 @@ classdef Spikes < Container
         voltage
         nSpikes;
         nChan
+        mask = [];
     end
     
     methods
@@ -46,6 +47,9 @@ classdef Spikes < Container
             %   times - the actual spike times
             %   voltage - an n x m x c matrix of spike snips (n = points, m = # of spikes, c = channels)
             %   nSpikes - the total number of spikes
+            %   nChan - number of channels associated with this spike (i.e. those in the associated ChannelIndex)
+            %   mask - a sparse matrix with 0 <= (i,j) <= 1, indicating the ith channels that detected each jth spikes 
+            %          (see function "double_flood_fill.m")
             %
             % Methods:
             %   plot
@@ -87,7 +91,10 @@ classdef Spikes < Container
             % plot( self,(col,chans) )
             %
             % plot the spike waveforms. Can optionally specify an input
-            % color as a second argument, and channels as third argument
+            % color as a second argument, and channels as third argument.
+            %
+            % If "self.mask" is populated, each channel will only display spikes
+            % that are strongly associated with that channel (i.e. mask(ch,:)==1)
             if nargin < 2 || isempty( varargin{1} )
                 col = [0.85 0.85 0.85];
             else
@@ -106,7 +113,12 @@ classdef Spikes < Container
             for ch = 1:nchan
                 subplot( nchan,1,ch ); hold on;
                 %fillPlot( self.voltage(:,:,chans(ch))',time,'sd',[],[],col );
-                plot( time,self.voltage(:,:,chans(ch)),'color',col );
+                if ~isempty( self.mask )
+                    bestSpikes = self.mask(ch,:) == 1;
+                else
+                    bestSpikes = 1:self.nSpikes;
+                end
+                plot( time,self.voltage(:,bestSpikes,chans(ch)),'color',col );
                 set( gca,'xlim',[time(1) time(end)] );
                 xlabel( 'time (ms)' );
                 ylabel( self.voltUnits );
@@ -135,22 +147,11 @@ classdef Spikes < Container
             nSp = self.nSpikes;
             nchan = self.nChan;
             spikes = zeros( n*4,nSp,nchan ); % up-samples for interpolation
-            x = 1:n; % original time-vec
-            xx = linspace(1,n,n*4); % the interpolant x-values
+            x = 1:n;
             
             % loop over channels
             for c = 1:nchan
-                spikes(:,:,c) = csaps( x,spikes(:,:,c)',amount,xx )'; % smooths the interpolant
-            end
-            
-            % now downsample
-            % downsample the spikes
-            snips = zeros( size(spikes,1)/4,size(spikes,2),nchan );
-            n = size( snips,1 );
-            xx = 1:n; % the interpolant x-values
-            x = linspace(1,n,n*4); % the original time-vec
-            for c = 1:nchan
-                snips(:,:,c) = spline( x,spikes(:,:,c)',xx )'; % no smoothing
+                spikes(:,:,c) = csaps( x,spikes(:,:,c)',amount,x )'; % smoothing cubic spline
             end
             
             % store back into self

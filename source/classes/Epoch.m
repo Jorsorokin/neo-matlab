@@ -360,7 +360,6 @@ classdef Epoch < Container
                         t = t+1; 
                     end
 
-                    % update the running count
                     totalRedundantSpikes = totalRedundantSpikes + 1;
                     waveforms(:) = nan;
                 end
