@@ -254,7 +254,7 @@ classdef ChannelIndex < Container
                 volt = reshape( smooth( medfilt1( volt,3 ) ),n,m ); % removes spot noise
 
                 % detect the spikes
-                if masked_detection
+                if ~masked_detection
                     [sptm,spsnip] = detectSpikes( volt,fs,thresh,1,artifact );
                     mask = [];
                 else
