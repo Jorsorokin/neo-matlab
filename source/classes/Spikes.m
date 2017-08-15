@@ -110,19 +110,23 @@ classdef Spikes < Container
             
             time = (0:size( self.voltage,1 )-1) / self.fs * 1000;
             
-            for ch = 1:nchan
-                subplot( nchan,1,ch ); hold on;
+            counter = 0;
+            for ch = chans
+                counter = counter+1;
+                subplot( nchan,1,counter ); hold on;
                 %fillPlot( self.voltage(:,:,chans(ch))',time,'sd',[],[],col );
                 if ~isempty( self.mask )
-                    bestSpikes = self.mask(ch,:) == 1;
+                    bestSpikes = find( self.mask(ch,:) == 1 );
                 else
                     bestSpikes = 1:self.nSpikes;
                 end
-                plot( time,self.voltage(:,bestSpikes,chans(ch)),'color',col );
-                set( gca,'xlim',[time(1) time(end)] );
-                xlabel( 'time (ms)' );
-                ylabel( self.voltUnits );
-                title( sprintf( 'CH %i',chans(ch) ) );
+                if ~isempty( bestSpikes )
+                    plot( time,self.voltage(:,bestSpikes,ch),'color',col );
+                    set( gca,'xlim',[time(1) time(end)] );
+                    xlabel( 'time (ms)' );
+                    ylabel( self.voltUnits );
+                    title( sprintf( 'CH %i',ch ) );
+                end
             end
 
             % convert to dark theme

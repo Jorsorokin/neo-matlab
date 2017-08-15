@@ -1,4 +1,4 @@
-function [snips,times,mask] = double_flood_fill( data,fs,varargin )
+function [snips,sptimes,mask] = double_flood_fill( data,fs,varargin )
 % [snips,times,mask] = double_flood_fill( data,fs,(chanMap,lowThresh,highThresh) );
 %
 % Detects spikes in the n x m matrix "data" using a double flood-fill
@@ -84,10 +84,8 @@ preSamples = floor( 0.0005 * fs);
 postSamples = floor( 0.001 * fs);
 totalSamples = postSamples + preSamples;
 snips = cell(1,numSegs);
-times = snips;
+sptimes = snips;
 mask = snips;
-minPts = 2;
-maxPts = floor( 0.002 * fs ); % spikes > 2ms long considered artifacts
 
 % get the standard deviation estimate for each channel
 sd = zeros( 1,m );
@@ -106,8 +104,8 @@ stop(end) = n; % avoids extracting more data than available
 for j = 1:numSegs
     seg = data(start(j):stop(j),p.chanMap)'; % using p.chanMap ensures the channels are continuous. if not, isolated "spike islands" will occur
 
-    % compute the low & high threshold matrices
-    lowCheck = bsxfun( @gt,-seg,p.lowThresh*sd ); 
+    % compute the low-threshold connected & adjacency matrix
+    lowCheck = bsxfun( @gt,-seg,p.lowThresh*sd ); % low memory implementation
     highCheck = bsxfun( @gt,-seg,p.highThresh*sd ); 
 
     % find the connected components among low-threshold crosses
@@ -123,8 +121,8 @@ for j = 1:numSegs
     counter = 1;
     nComponents = numel( finalLabels );
     snips{j} = nan( totalSamples,nComponents,m ); 
-    times{j} = nan( 1,nComponents );
-    mask{j} = zeros( m,nComponents );
+    sptimes{j} = nan( 1,nComponents );
+    mask{j} = zeros( m,nComponents,'single' );
     spikes = nan( totalSamples*2,nComponents,m );
     sz = components.ImageSize;
     for i = finalLabels'
@@ -143,12 +141,12 @@ for j = 1:numSegs
         end
 
         % pull out the points corresponding to this component
-        alpha = p.lowThresh * sd(ch);
-        beta = p.highThresh * sd(ch);
-        psi = zeros( nCh,nPt );
-        for t = 1:nPt
-            for c = 1:nCh
-                psi(c,t) = seg(ch(c),pt(t));
+        alpha = p.lowThresh * sd(ch)';
+        beta = p.highThresh * sd(ch)';
+        psi = zeros( nPt,nCh );
+        for c = 1:nCh
+            for t = 1:nPt
+                psi(t,c) = seg(ch(c),pt(t));
             end
         end
 
@@ -167,7 +165,7 @@ for j = 1:numSegs
         %       t_spike = SUM{ t * psi^p } / SUM{ psi^p }
         %   where "p" is a power-weighting that determines alignment on spike peak 
         %   or center of mass (inf or 1, respectively). p = 2 is a good balance. 
-        t_spike = sum( sum( pt' .* psi.^2 ) ) / sum( sum( psi.^2 ) );
+        t_spike = sum( sum( pt' * psi.^2 ) ) / sum( sum( psi.^2 ) );
         closestPt = round( t_spike ); 
 
         % skip if this point is too close to the edge of the recording
@@ -177,7 +175,7 @@ for j = 1:numSegs
 
         % now that we have t_spike, use the closest actual sample point to pull out the spike across channels
         spikes(:,counter,p.chanMap) = seg( :,closestPt-preSamples*2:closestPt+postSamples*2 - 1 )'; % back into original channel order as supplied
-        times{j}(counter) = t_spike; 
+        sptimes{j}(counter) = t_spike; 
 
         % update our mask matrix for this component
         mask{j}(p.chanMap(ch),counter) = psi_masked; % we un-do the channel mapping and only change channels associated with this component
@@ -187,23 +185,23 @@ for j = 1:numSegs
     % now we need to align the spike waveforms according to their center of mass.
     % since t_spike may not be an exact sample point, we use cubic spline interpolation surrounding this 
     % point, extract less data before/after this point than the original data, then down sample
-    snips{j} = interpolate_spikes( spikes,times{j}-round( times{j} ) + preSamples*2,...
+    snips{j} = interpolate_spikes( spikes,sptimes{j}-round( sptimes{j} ) + preSamples*2,...
                                         fs,preSamples,postSamples );
-    times{j} = (times{j} + start(j) - 1); % to make relative to the start of "data", not "seg"
+    sptimes{j} = (sptimes{j} + start(j) - 1); % to make relative to the start of "data", not "seg"
 
     % finally, remove any nan's in our matrices
-    badInds = isnan( times{j} );
+    badInds = isnan( sptimes{j} );
     if any( badInds )
         snips{j}(:,badInds,:) = [];
-        times{j}(badInds) = [];
+        sptimes{j}(badInds) = [];
         mask{j}(:,badInds) = [];
     end
 end
 
 % now concatenate the data
 snips = [snips{:}];
-times = [times{:}];
-mask = sparse( [mask{:}] );
+sptimes = [sptimes{:}];
+mask = sparse( double( [mask{:}] ) );
 
 
 %% HELPER FUNCTIONS

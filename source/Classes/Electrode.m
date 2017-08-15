@@ -206,7 +206,7 @@ classdef Electrode < Container
             % clean up graph
             xlabel( 'time (s)' );
             ylabel( 'epoch' );
-            suptitle( sprintf( 'Electrode: %i, all Epochs',self.electrodeNum ) );  
+            title( sprintf( 'Electrode: %i, all Epochs',self.electrodeNum ) );  
             darkPlot( gcf );           
             hold off;
         end
