@@ -113,7 +113,6 @@ classdef Block < Container
                 self.nElectrodes = 0;
                 chanind(~isvalid( chanind )) = [];
                 for j = 1:numel( chanind )
-<<<<<<< HEAD
                     chanElectrodes = chanind(j).getChild( 'Electrode' );
                     if ~isempty( chanElectrodes )
                         electrodeID = [chanElectrodes.electrodeNum];
@@ -121,13 +120,6 @@ classdef Block < Container
                         chanind(j).chanIDs = electrodeID; % the actual electrode IDs 
                     end
                     self.nElectrodes = self.nElectrodes + numel( chanElectrodes );
-=======
-                    electrodes = chanind(j).getChild( 'Electrode' );
-                    electrodeID = [electrodes.electrodeNum];
-                    chanind(j).nElectrodes = numel( electrodeID );
-                    chanind(j).chanIDs = electrodeID; % the actual electrode IDs 
-                    chanind(j).channels = 1:chanind(j).nElectrodes; % their location in the Block parent
->>>>>>> origin/master
                 end
             end
             self.nChanInds = numel( chanind );

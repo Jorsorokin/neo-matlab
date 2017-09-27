@@ -264,9 +264,15 @@ classdef ChannelIndex < Container
                         maxChan = floor( mean( sum( distMat <= 150 ) ) );
                     end
                     [spsnip,sptm,mask] = double_flood_fill( bsxfun( @minus,volt,mean( volt,2 ) ),fs,...
-                        self.chanMap,thresh/2,thresh,maxPts,maxChan,artifact );                
+                        self.chanMap,thresh/2,thresh,maxPts,maxChan,artifact );
                 end
                 clear volt
+                
+                % delete any spikes with massive positive peak
+                bad = sum( any( spsnip > 200 ),3 ) > 0;
+                spsnip(:,bad,:) = [];
+                sptm(bad) = [];
+                mask(:,bad) = [];
                 
                 % create a "Spikes" object using the found spikes
                 Sp = Spikes( sptm/fs,single( spsnip ),fs );
@@ -700,7 +706,7 @@ classdef ChannelIndex < Container
     end % public methods
     
     
-    methods(Access = 'private')
+    methods(Access = 'private');
         
         function create_new_neurons( self,spsnips,sptm,trials,prevNeuronID,newID,varargin )
             % merges / creates new Neuron children based on new labels

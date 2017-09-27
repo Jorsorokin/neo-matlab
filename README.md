@@ -66,8 +66,9 @@ While much of the package was written by me, certain features were either inspir
 1. Laurens van der Maaten's wonderful [dimension reduction toolbox](https://lvdmaaten.github.io/drtoolbox/)
 2. The [fastICA](https://research.ics.aalto.fi/ica/fastica/) implementation of ICA
 3. Joshua Stough's [select data](http://www.mathworks.com/matlabcentral/fileexchange/37956-select-data) script (used in the sortTool GUI)
-4. Mo Chen's [EM-GMM](https://github.com/PRML/PRMLT) implementation
-5. Of course, inspiration from the [Neo](http://neuralensemble.org/neo/) python package
+4. Mo Chen's [EM-GMM and EM-VB](https://github.com/PRML/PRMLT) implementations
+5. Yarpiz [DBSCAN](www.yarpiz.com)
+6. Of course, inspiration from the [Neo](http://neuralensemble.org/neo/) python package
 
 ## Uses 
 For further information on using this package for data extraction and organization, see the [various examples](docs/examples), and the detailed [GUI documentation](docs/GUI_manual.pdf)
@@ -76,8 +77,8 @@ For further information on using this package for data extraction and organizati
 - [X] method for eliminating common spikes detected across multiple ChannelIndex objects
 - [X] method for spike detection across all ChannelIndex objects (i.e. [Masked EM](https://www.ncbi.nlm.nih.gov/pubmed/25149694))
 - [ ] method for estimating best kernel for firing rates, and/or [adaptive kernels](https://link.springer.com/article/10.1007/s10827-009-0180-4)
-- [ ] functions for clustering via Variational Bayes and EM-TMM in the sortTool GUI
+- [X] functions for clustering via Variational Bayes and EM-TMM in the sortTool GUI
 - [ ] method for visualizing the current heirarchy in the Block object (i.e. [connected graph](http://mathworld.wolfram.com/ConnectedGraph.html))
 - [ ] dealing with different sorting parameters when updating the sortModel property of the Neuron object
-- [ ] function for online sorting / assigning new spikes to current Neuron objects
-- [ ] interfacing with MySQL for memory-efficient loading/saving and smart querying
+- [X] function for online sorting / assigning new spikes to current Neuron objects [wMSC.m](source/Functions/clustering/wMSC.m)
+- [ ] interfacing with SQL for memory-efficient loading/saving and smart querying (SQLite?)
