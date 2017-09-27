@@ -255,6 +255,7 @@ classdef ChannelIndex < Container
                     [sptm,spsnip] = detectSpikes( volt,fs,thresh,1,artifact );
                     mask = [];
                 else
+<<<<<<< HEAD
                     maxPts = floor( 0.0025 * fs ); % anything > 2.5ms is an artifact or overlapping spike
                     maxChan = [];
 
@@ -262,6 +263,13 @@ classdef ChannelIndex < Container
                     if ~isempty( self.chanDistances )
                         distMat = pdist2( self.chanDistances,self.chanDistances );
                         maxChan = floor( mean( sum( distMat <= 150 ) ) );
+=======
+                    maxPts = floor( 0.003 * fs ); % anything > 3ms is an artifact or overlapping spike
+                    maxChan = [];
+                    if ~isempty( self.chanDistances )
+                        distMat = pdist2( self.chanDistances,self.chanDistances );
+                        maxChan = floor( mean( sum( distMat <= 200 ) ) ); % average number of channels <= 150 um from one another
+>>>>>>> origin/master
                     end
                     [spsnip,sptm,mask] = double_flood_fill( bsxfun( @minus,volt,mean( volt,2 ) ),fs,...
                         self.chanMap,thresh/2,thresh,maxPts,maxChan,artifact );                
@@ -294,7 +302,11 @@ classdef ChannelIndex < Container
             % ==================================================================
             
             % updates
+<<<<<<< HEAD
             clear N
+=======
+            self.getChild( 'Neuron' ).addChild( Sp ); 
+>>>>>>> origin/master
             self.getParent( 'Block' ).update;
         end
         

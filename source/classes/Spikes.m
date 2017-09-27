@@ -115,16 +115,24 @@ classdef Spikes < Container
             ylimits = [min( self.voltage(:) ),max( self.voltage(:) )];
             
             counter = 0;
+<<<<<<< HEAD
             rowCounter = 0;
             for ch = chans
                 counter = counter+1;
                 subplot( rows,cols,counter ); hold on;
+=======
+            for ch = chans
+                counter = counter+1;
+                subplot( nchan,1,counter ); hold on;
+                %fillPlot( self.voltage(:,:,chans(ch))',time,'sd',[],[],col );
+>>>>>>> origin/master
                 if ~isempty( self.mask )
                     bestSpikes = find( self.mask(ch,:) == 1 );
                 else
                     bestSpikes = 1:self.nSpikes;
                 end
                 if ~isempty( bestSpikes )
+<<<<<<< HEAD
                     %fillPlot( self.voltage(:,bestSpikes,ch)',time,'sd',[],[],col );
                     plot( time,self.voltage(:,bestSpikes,ch),'color',col );
                 end
@@ -140,6 +148,13 @@ classdef Spikes < Container
                 if rowCounter == rows
                     xlabel( 'time (ms)' );
                     set( gca,'xcolor','w' );
+=======
+                    plot( time,self.voltage(:,bestSpikes,ch),'color',col );
+                    set( gca,'xlim',[time(1) time(end)] );
+                    xlabel( 'time (ms)' );
+                    ylabel( self.voltUnits );
+                    title( sprintf( 'CH %i',ch ) );
+>>>>>>> origin/master
                 end
             end
 
