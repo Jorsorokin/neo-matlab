@@ -7,7 +7,7 @@ function st_plot_isi( handles )
     % check if any spike times exist
     if isnan( handles.times )
         disp( 'No spike times available' );
-        return;
+        return
     end
     
     % get the selected data points
@@ -15,7 +15,7 @@ function st_plot_isi( handles )
     handles.isiplot.Parent.Visible = 'on';
     pts = handles.selectedPoints; % only plots selected (highlighted) points
     if ~any( pts )
-        return;
+        return
     end
     pltLims = handles.isiplot.XLim;
     edges = linspace( pltLims(1),pltLims(2),pltLims(2)*2000 );

@@ -1,8 +1,11 @@
 function varargout = sortTool(varargin)
-    % SORTTOOL MATLAB code for sortTool.fig
+    % code for sortTool.fig
     %
     % GUI for facilitating spike sorting of large databases. Inputs are optional,
-    % as one can load in the various files through the GUI itself.
+    % as one can load in the various files through the GUI itself. This GUI
+    % works equally well for any data that needs sorting (genomic, EPSPs,
+    % network graphs, etc.). The only difference is that some features may
+    % be irrelevant (i.e. ISI and rasters, for instance).
     %
     % The GUI projects high-dimensional data using a variety of projection
     % methods that the user can specify. These projection methods are a
@@ -30,20 +33,28 @@ function varargout = sortTool(varargin)
     %
     % INPUTS:
     %   ( data ) - the raw waveforms in column-order (each column is one
-    %              observation, rows are variables)
+    %              observation, rows are variables). Can be 2- or 3-dimensional
     %
-    %   ( times ) - the times of the spike waveforms (as one long
-    %               vector, in seconds)
+    %   ( times ) - the times of the waveforms as one long vector, in seconds
     %
     %   ( projection ) - the projections of the data onto lower dims
     %
-    %   ( labels ) - the labels from a previous spike-sorting routine
+    %   ( labels ) - the labels from a previous sorting routine
     %
-    %   ( trials ) - trial-labels of the spikes (i.e. one can upload a
-    %                a large data matrix with spikes from different trials,
+    %   ( trials ) - trial-labels of the waveforms (i.e. one can upload a
+    %                a large data matrix with waveforms from different trials,
     %                but to get an accurate representation of ISI one needs
     %                information regarding which spikes are from which
     %                trial. Default is to assume the same trail).
+    %
+    %   ( mask ) - a sparse or full c x m matrix, with 0 <= (i,j) <= 1. The
+    %              mask matrix defines which channels 1:c are "involved"
+    %              with spikes 1:m. A mask matrix is used when computing 
+    %              features by "masking" channels not involved with any spike.
+    %
+    %   ( location ) - a c x q matrix specifying the locations of each electrode.
+    %                  Useful for dense multi-electrode probe configurations. Note,
+    %                  this is only used if "data" is 3-dimensional (with 3rd dimension = channels)
     % 
     % OUTPUTS:
     %   ( labels ) - the final labels assigned to each spike. Note, a label
@@ -54,15 +65,14 @@ function varargout = sortTool(varargin)
     %
     %   ( model ) - a structure containing information on the projection /
     %               sorting including 
-    %                   W - the projection matrix
-    %                   projMethod - the type of projection specified
-    %                   sortMethod - the sorting method (kmeans, EM,...)
-    %                   sortParams - covariances (sigma), means (mu), and
-    %                                weights (w) of the sorting
-    %                   probability - the probabilities of each spike
-    %                                 belonging to each cluster
+    %                   mapping         - the projection mapping structure (if applicable)
+    %                   projMethod      - the projection method (PCA, ICA, LE,...)
+    %                   sortMethod      - the sorting method (Km, EM-GMM, DBSCAN,... )
+    %                   sortModel       - the sorting model structure (if applicable)
+    %                   probabilities   - the probabilities of each spike
+    %                                       belonging to each kth cluster
     %
-    % Last edited by Jordan Sorokin, 7/23/2017
+    % Last edited by Jordan Sorokin, 9/8/2017
 
     % Begin initialization code - DO NOT EDIT
     gui_Singleton = 1;
@@ -90,53 +100,84 @@ function varargout = sortTool(varargin)
         % Choose default command line output for sortTool
         handles.output = hObject;
 
-        % set up user-defined variables in the handles structure
-        handles.figure1.Visible = 'off';
+        % set up the figure
+        set( 0,'defaultfigurewindowstyle','normal' );
         handles.figure1.Name = 'Dimensionality Reduction & Sorting Tool';
-        handles.data = nan;
-        handles.times = nan;
-        handles.projection = nan;
-        handles.labels = nan;   
-        handles.trials = nan;
-        handles.selectedPoints = nan;
-        handles.manualClust = {};
+        handles.figure1.Visible = 'off';                % turns of the fig temporarily
+        set( handles.figure1,'toolbar','figure' );      % turns on the toolbar
+        figureMenu = uimenu( 'Text','Load' );           % creates a 'load' menu button
+        handles.figureMenu = uimenu( figureMenu,...     % creats variables to load
+            'Text',{'data','times','projection',...
+            'labels','trials','mask','location'}...
+            'Callback',@loaddata_Callback );
+        set( handles.figure1,'WindowButtonMotionFcn',@mouseXY); % allows for tracking location of mouse
+
+        % set up user-defined variables in the handles structure
+        handles.data = nan;                             % the waveforms
+        handles.availableData = false;                  % to avoid "gathering" gpuArray for each logical check
+        handles.times = nan;                            % for plotting rasters/ISI
+        handles.projection = nan;                       % the projection using the "projectMethod"    
+        handles.availableProjection = false;            % to avoid "gathering" gpuArray for each logical check
+        handles.labels = nan;                           % previous sorting labels
+        handles.trials = nan;                           % n-dim vector used for plotting rasters
+        handles.mask = nan;                             % mask vector (see "double_flood_fill.m")
+        handles.location = nan;                         % vector specifying (x,y) location of each electrode
+        handles.selectedPoints = nan;                   % points highlighted on the projection plot
+        handles.manualClust = {};                       % will be added to while with manual cluster assignment
         handles.plotDims = [1,2];                       % default plotting 1st & 2nd columns
         handles.nDim = 3;                               % defaults to 3D projection 
+        
+        % create our model structure for ouput
         handles.model = struct; 
         handles.model.projectMethod = 'PCA';            % defaults to PCA first
-        handles.model.sortMethod = 'EM-GMM';            % defaults to gaussian mixture modeling
-        handles.model.W = nan;        
-        handles.model.probabilities = nan;
-        handles.model.keptPts = nan;
-        handles.allPlotColor = [ [.8, .8, .8];...       % light gray        (0)
+        handles.model.sortMethod = 'EM-GMM';            % defaults to EM gaussian mixture modeling
+        handles.model.mapping = nan;                    % the projection mapping
+        handles.model.keptPts = nan;                    % vector indicating which points we manually delete/remove labels
+
+        % plotting colors for different labels
+        handles.allPlotColor = [ [.75, .75, .75];...    % light gray        (0)
                                  [0.1, 0.74, 0.95];...  % deep sky-blue     (1)
                                  [0.95, 0.88, 0.05];... % gold/yellow       (2)
                                  [0.80, 0.05, 0.78];... % magenta           (3)
-                                 [0.2, 0.7, 0.20];...   % lime green        (4)
+                                 [0.3, 0.8, 0.20];...   % lime green        (4)
                                  [0.95, 0.1, 0.1];...   % crimson red       (5)   
                                  [0.64, 0.18, 0.93];... % blue-violet       (6)
                                  [0.88, 0.56, 0];...    % orange            (7)
                                  [0.4, 1.0, 0.7];...    % aquamarine        (8)
-                                 [0.95, 0.9, 0.7];...   % salmon-yellow     (9)
-                                 [0, 0.4, 1];...        % blue              (10)
+                                 [0.95, 0.88, 0.7];...  % salmon-yellow     (9)
+                                 [0, 0.2, 1];...        % blue              (10)
                                  [1, 0.41, 0.7];...     % hot pink          (11)
-                                 [0.6, 1, 0];...        % chartreuse        (12)
+                                 [0.5, 1, 0];...        % chartreuse        (12)
                                  [0.6, 0.39, 0.8];...   % amtheyist         (13)
                                  [0.82, 0.36, 0.36,];...% indian red        (14)
                                  [0.53, 0.8, 0.98];...  % light sky blue    (15)
-                                 [0, 0.85, 0.1]...      % forest green      (16)
+                                 [0, 0.6, 0.1];...      % forest green      (16)
+                                 [0.65, 0.95, 0.5];...  % light green       (17)
+                                 [0.85, 0.6, 0.88];...  % light purple      (18)
+                                 [0.90, 0.7, 0.7];...   % light red         (19)
+                                 [0.1, 0.1, 0.5];...    % dark blue         (20)
                                 ];
+                                
         % repeat colors in case we have many identified neurons
         handles.allPlotColor = [handles.allPlotColor; repmat( handles.allPlotColor(2:end,:),4,1 )]; 
-        handles.plotcolor = nan;        
+        handles.plotcolor = nan;    
+        handles.buttonPressColor = [0.5, 0.8, 0.95];
         
         % GET THE OPTIONAL INPUTS
         p = st_check_inputs( varargin );
         handles.data = p.data;
+        if any( ~isnan( gather( handles.data ) ) )
+            handles.availableData = true;
+        end
+        handles.projection = p.projection;
+        if any( ~isnan( gather( handles.projection ) ) )
+            handles.availableProjection = true;
+        end
         handles.labels = p.labels;
         handles.times = p.times;
         handles.trials = p.trials;
-        handles.projection = p.projection;
+        handles.mask = p.mask;
+        handles.location = p.location;
         clear p
                
         % get the selectedPoints if data available
@@ -155,7 +196,7 @@ function varargout = sortTool(varargin)
         handles.plotcolor = update_plot_colors( handles );
         
         % plot the projections if provided
-        if ~isnan( handles.projection )
+        if handles.availableProjection
             st_plot_projections( handles );
         end
         
@@ -177,8 +218,8 @@ function varargout = sortTool(varargin)
         varargout{3} = handles.model;
         
         close( handles.figure1 );
-        if ~isa( handles.waveformplot,'double' ) && isvalid( handles.waveformplot )
-            close( handles.waveformplot.Parent );
+        if ~isa( handles.waveformplot(1),'double' ) && isvalid( handles.waveformplot(1) )
+            close( handles.waveformplot(1).Parent );
         end
         if ~isa( handles.isiplot,'double' ) && isvalid( handles.isiplot )
             close( handles.isiplot.Parent );
@@ -190,9 +231,6 @@ function varargout = sortTool(varargin)
                  
     % --- clears the current figure
     function CloseMenuItem_Callback(hObject, eventdata, handles)
-        % hObject    handle to CloseMenuItem (see GCBO)
-        % eventdata  reserved - to be defined in a future version of MATLAB
-        % handles    structure with handles and user data (see GUIDATA)
         selection = questdlg(['Close ' get(handles.figure1,'Name') '?'],...
                              ['Close ' get(handles.figure1,'Name') '...'],...
                              'Yes','No','Yes');
@@ -203,13 +241,13 @@ function varargout = sortTool(varargin)
         close all
         
 
-    % --- Executes on button press in savebutton.
+    % --- closes GUI and returns outputs
     function savebutton_Callback(hObject, eventdata, handles)
         % closes the GUI   
         handles.figure1.Visible = 'off';
         
         
-    % --- Executes on button press in delete
+    % --- Deletes labels assigned to points
     function deletebutton_Callback(hObject,eventdata,handles)
         if isnan( handles.labels )
             return;
@@ -222,25 +260,70 @@ function varargout = sortTool(varargin)
         st_update_plots( handles );
         guidata( hObject,handles );
 
-        
-% -------------------------------------------------------------------------  
+
+    % --- gets current position of mouse and highlights pushbuttons if necessary
+    function mouseXY( gcbo,eventdata,handles )
+        mousePosition = get( handles.figure1, 'CurrentPoint' );
+        if any( mousePosition ~= handles.mousePosition ) % we've moved the mouse
+            handles.mousePosition = mousePosition;
+        else
+            return % no movement, so don't loop over the pushbuttons
+        end
+
+        % search over all pushbutton objects
+        buttons = findjobj( handles.figure1,'Type','pushbutton' );
+        for j = 1:numel( buttons )
+            pos = buttons(j).getpixelposition( buttons(j),'true' ); % relative to figure
+            inX = any( ismember( round( pos(1):pos(1)+pos(3) ),round( handles.mousePosition(1) ) ) );
+            inY = any( ismember( round( pos(2):pos(2)+pos(4) ),round( handles.mousePosition(2) ) ) );
+            if inX & inY
+                buttons(j).BackgroundColor = [0.4 0.6 0.8]; % light blue
+            end
+        end
+
+        guidata( handles.figure1, handles );
+
+
 % loading & projections
-% ------------------------------------------------------------------------- 
-    % --- Executes on button press in loaddata.
+% =======================================================
+    % --- Executes on button press in menu item 'load'. Allows user to load in data into GUI
     function loaddata_Callback(hObject, eventdata, handles)
-        % hObject    handle to loaddata (see GCBO)
-        % eventdata  reserved - to be defined in a future version of MATLAB
-        % handles    structure with handles and user data (see GUIDATA)
+
         st_clear_plots( handles )
 
-        % allow user to load data from .mat, .csv, or .txt file
-        [file,filepath] = uigetfile( {'*.mat';'*.csv';'*.txt'},...
-            'select the data matrix to sort' );
-        handles.data = load( [filepath,filesep,file] );
-        handles.labels = zeros( 1,size( data,2 ),'uint8' );
-        handles.plotcolors = update_plot_colors( handles );
-        handles.selectedPoints = false( 1,numel( handles.labels ) );
-        handles.model.keptPts = single( 1:size( handles.data,2 ) );
+        % load in the variable names by creating a table of variable names
+        vars = who;
+        [ind,val] = listdlg( 'PromptString','Select variable',...
+                        'SelectionMode','Single',...
+                        'ListString',vars );
+        if val == 0
+            return
+        else
+            % get the name of the variable
+            name = vars{ind};
+
+            % load the variable into the handles object
+            x = eval( 'base',name ); % loads in data into 'x'
+            switch hObject.Text
+                case 'data'
+                    handles.data = x;
+                    handles.availableData = true;
+                    handles.labels = zeros( 1,size( x,2 ),'uint8' );
+                case 'times'
+                    handles.times = x;
+                case 'projection'
+                    handles.projection = x;
+                    handles.availableProjection = true;
+                case 'labels'
+                    handles.labels = x;
+                case 'trials'
+                    handles.trials = x;
+                case 'mask'
+                    handles.mask = x;
+                case 'location'
+                    handles.location = x;
+            end
+        end
 
         % update the GUI
         guidata( hObject, handles );
@@ -248,9 +331,8 @@ function varargout = sortTool(varargin)
         
     % --- Executes during object creation, after setting all properties.
     function mappingmethod_CreateFcn(hObject, eventdata, handles)
-        % hObject    handle to mappingmethod (see GCBO)
-        % eventdata  reserved - to be defined in a future version of MATLAB
-        % handles    empty - handles not created until after all CreateFcns called
+        % establishes the possible mapping methods in the dropdown bar
+
         if ispc && isequal(get(hObject,'BackgroundColor'), get(0,'defaultUicontrolBackgroundColor'))
              set(hObject,'BackgroundColor','white');
         end
@@ -260,6 +342,8 @@ function varargout = sortTool(varargin)
             {'PCA (principal components analysis)',...
             'kPCA (kernel PCA)',...
             'pPCA (probabilistic PCA',...
+            'NCA (neighborhood components analysis)',...
+            'LPP (locality preserving projection)',...
             'ICA (independent components analysis',...
             'LLE (local linear embedding)',...
             'HLLE (hessian local linear embedding)',...
@@ -281,12 +365,11 @@ function varargout = sortTool(varargin)
 
     % --- Executes on selection change in mappingmethod.
     function mappingmethod_Callback(hObject, eventdata, handles)
-        % hObject    handle to mappingmethod (see GCBO)
-        % eventdata  reserved - to be defined in a future version of MATLAB
-        % handles    structure with handles and user data (see GUIDATA)
-        allmethods = {'PCA','KernelPCA','ProbPCA','ICA','LLE','HessianLLE','NPE','SPE',...
-                         'MVU','FastMVU','Laplacian','DiffusionMaps','SNE','tSNE',...
-                         'Isomap','Sammon','Autoencoder'};
+        % selects a new mapping method
+
+        allmethods = {'PCA','KernelPCA','ProbPCA','NCA','LPP','ICA','LLE',...
+                        'HessianLLE','NPE','SPE','MVU','FastMVU','Laplacian',...
+                        'DiffusionMaps','SNE','tSNE','Isomap','Sammon','Autoencoder'};
         value = get( hObject,'value' );
         handles.model.projectMethod = allmethods{value};
 
@@ -296,15 +379,15 @@ function varargout = sortTool(varargin)
         
     % --- Executes on button press in projectdata.
     function projectdata_Callback(hObject,eventdata,handles)
-        % hObject    handle to projectdata (see GCBO)
-        % handles    structure with handles and user data (see GUIDATA)
+        % projects waveforms using the chosen mapping method
 
-        % project the data using the method in "handles.projectMethod"
-        [handles.projection,handles.model.W] = st_project_data( handles );
+        % do the projections
+        [handles.projection,handles.model.mapping] = st_project_data( handles );
+        handles.availableProjection = true;
         
         % now plot onto the main figure
         handles.plotDims( handles.plotDims > handles.nDim ) = handles.nDim;
-        st_plot_projections( handles )
+        handles.mapplotMenu = st_plot_projections( handles );
         handles.selectedPointPlot = st_plotSelectedData( handles );
 
         % update the GUI
@@ -312,13 +395,8 @@ function varargout = sortTool(varargin)
 
                 
     % --- Executes during object creation, after setting all properties.
-    function dim1_CreateFcn(hObject, eventdata, handles)
-        % hObject    handle to dim1 (see GCBO)
-        % eventdata  reserved - to be defined in a future version of MATLAB
-        % handles    empty - handles not created until after all CreateFcns called
+    function dim1_CreateFcn(hObject, eventdata, handles) 
 
-        % Hint: edit controls usually have a white background on Windows.
-        %       See ISPC and COMPUTER.
         if ispc && isequal(get(hObject,'BackgroundColor'), get(0,'defaultUicontrolBackgroundColor'))
             set(hObject,'BackgroundColor','white');
         end
@@ -327,24 +405,15 @@ function varargout = sortTool(varargin)
 
         
     function dim1_Callback(hObject, eventdata, handles)
-        % hObject    handle to dim1 (see GCBO)
-        % eventdata  reserved - to be defined in a future version of MATLAB
-        % handles    structure with handles and user data (see GUIDATA)
+        % specifies the first dimension to display
 
-        % Hints: get(hObject,'String') returns contents of dim1 as text
-        %        str2double(get(hObject,'String')) returns contents of dim1 as a double
         handles.plotDims(1) = str2double( get( hObject,'String' ) );
         guidata( hObject,handles );
 
         
     % --- Executes during object creation, after setting all properties.
     function dim2_CreateFcn(hObject, eventdata, handles)
-        % hObject    handle to dim2 (see GCBO)
-        % eventdata  reserved - to be defined in a future version of MATLAB
-        % handles    empty - handles not created until after all CreateFcns called
 
-        % Hint: edit controls usually have a white background on Windows.
-        %       See ISPC and COMPUTER.
         if ispc && isequal(get(hObject,'BackgroundColor'), get(0,'defaultUicontrolBackgroundColor'))
             set(hObject,'BackgroundColor','white');
         end
@@ -354,23 +423,15 @@ function varargout = sortTool(varargin)
         
         
     function dim2_Callback(hObject, eventdata, handles)
-        % hObject    handle to dim2 (see GCBO)
-        % eventdata  reserved - to be defined in a future version of MATLAB
-        % handles    structure with handles and user data (see GUIDATA)
-
-        % Hints: get(hObject,'String') returns contents of dim2 as text
-        %        str2double(get(hObject,'String')) returns contents of dim2 as a double
+        % specifies the second dimension to display
+        
         handles.plotDims(2) = str2double( get( hObject,'String' ) );
         guidata( hObject,handles );     
         
-               
-    function nDim_CreateFcn(hObject, eventdata, handles)
-        % hObject    handle to nDim (see GCBO)
-        % eventdata  reserved - to be defined in a future version of MATLAB
-        % handles    empty - handles not created until after all CreateFcns called
 
-        % Hint: edit controls usually have a white background on Windows.
-        %       See ISPC and COMPUTER.
+    % --- Executes during object creation, after setting all properties.          
+    function nDim_CreateFcn(hObject, eventdata, handles)
+
         if ispc && isequal(get(hObject,'BackgroundColor'), get(0,'defaultUicontrolBackgroundColor'))
             set(hObject,'BackgroundColor','white');
         end
@@ -379,34 +440,31 @@ function varargout = sortTool(varargin)
         
 
     function nDim_Callback(hObject, eventdata, handles)
-        % hObject    handle to nDim (see GCBO)
-        % eventdata  reserved - to be defined in a future version of MATLAB
-        % handles    structure with handles and user data (see GUIDATA)
+        % specifies the number of dimensions to project onto using the specified mapping method
+  
         handles.nDim = str2double( get( hObject,'String' ) );
         guidata( hObject,handles );    
-  
         
-% ------------------------------------------------------------------------- 
-% misc. plotting procedures (updating colors, replotting, etc.)
-% ------------------------------------------------------------------------- 
+
+% plotting procedures (updating colors, replotting, etc.)
+% ======================================================= 
      % --- Executes on button press in replogt
     function replogt_Callback(hObject, eventdata, handles)
         % update the plots according to new labels or projection dims
-        st_plot_projections( handles );
+
+        handles.mapplotMenu = st_plot_projections( handles );
         handles.selectedPointPlot = st_plotSelectedData( handles );
         st_update_plots( handles );
         guidata( hObject,handles );
         
         
-    % --- Executes on button press in selectdata.
+    % --- Executes on button press in selectdata
     function selectdata_Callback(hObject, eventdata, handles)
-        % allows user to select individual data points in the main plot     
-        if isnan( handles.data )
-            return;
-        end
+        % allows user to select individual data points in the main plot  
 
-        % get current axes, clear previous selected points
-        %handles = st_clearSelectedData( handles );
+        if ~handles.availableData
+            return
+        end
 
         % get the selection value, plot the selected points
         pts = st_selectDataLasso( handles.mapplot );
@@ -424,12 +482,10 @@ function varargout = sortTool(varargin)
     % --- executes on select cluster button press
     function selectclust_Callback(hObject,eventdata,handles)
         % allows user to select individual clusters in the main plot
-        if isnan( handles.data )
-            return;
+
+        if ~handles.availableData
+            return
         end
-        
-        % get current axes, clear previous points
-        %handles = st_clearSelectedData( handles );
         
         % get the selected point and those belonging to same cluster
         pts = st_selectDataCluster( handles.mapplot,handles.labels );
@@ -446,6 +502,8 @@ function varargout = sortTool(varargin)
 
     % --- clears the manually-selected data on button press
     function cleardata_Callback(hObject, eventdata, handles)
+
+        % clear all data selection
         handles = st_clearSelectedData( handles );
         
         % update
@@ -456,9 +514,9 @@ function varargout = sortTool(varargin)
     function colors = update_plot_colors( handles )
         
         % check if any labels (i.e. any data)
-        if isnan( handles.labels )
+        if any( isnan( handles.labels ) )
             colors = nan;
-            return;
+            return
         else
             colors = zeros( numel( handles.labels ),3,'single' );
         end
@@ -475,19 +533,20 @@ function varargout = sortTool(varargin)
     function plotspikes_Callback(hObject, eventdata, handles)
         
         % create a new figure if needed
-        if isa( handles.waveformplot,'double' ) || ~isvalid( handles.waveformplot )
+        if isa( handles.waveformplot(1),'double' ) || ~isvalid( handles.waveformplot(1) )
             handles.waveformplot = st_create_waveplot( handles ); 
         end
             
-        % check if visible; if not, plot
-        switch handles.waveformplot.Parent.Visible
+        % plot
+        switch handles.waveformplot(1).Parent.Visible
             case 'on'
                 cla( handles.waveformplot );
-                handles.waveformplot.Parent.Visible = 'off'; % hide the plot
+                handles.waveformplot(1).Parent.Visible = 'off'; % hide the plot
             otherwise
-                st_plot_waveforms( handles );
+                handles.waveformplot(1).Parent.Visible = 'on';
+                st_plot_waveforms( handles )
         end
-            
+        
         % update
         guidata( hObject,handles );    
         
@@ -532,11 +591,77 @@ function varargout = sortTool(varargin)
         
         % update
         guidata( hObject,handles );  
-                
-        
-% ------------------------------------------------------------------------- 
+
+    % --- executes with right-click 'assign' (re-assigns single point label)
+    function rightclick_assign( hObject,handles,callback );
+
+        % get closest point to mouse
+        mouse = get( handles.mapplot,'CurrentPoint' );
+        xy = mouse(1:1:2);
+        ax = axis;
+        dx = ax(2) - ax(1);
+        dy = ax(4) - ax(3);
+
+        [~,closestPt] = min( sqrt( ((handles.mapplot.Children.XData - xy(1))/dx).^2...
+                                    + ((handles.mapplot.Children.YData - xy(2))/dx).^2 ) );
+
+        % draw a white circle around the point
+        pos = [handles.mapplot.Children.XData(closestPt),handles.mapplot.Children.YData(closestPt)];
+        circle = plot( pos(1),pos(2),'wo' );
+
+        % switch for the delete choice
+        switch hObject.Label
+            case 'new label'
+                handles.labels(closestPt) = max( handles.labels ) + 1;
+                handles.mapplot.Children.CData(closestPt,:) = handles.allPlotColor(handles.labels(closestPt,:));
+            case 'existing label'
+                disp( 'currently under development' );
+        end
+
+        % update the plots
+        delete( circle );
+        st_update_plots( handles );
+        guidata( hObject,handles );
+
+
+    % --- executes with right-click 'delete' (deletes single label or point)
+    function rightclick_delete( hObject,handles,callback );
+
+        % get closest point to mouse
+        mouse = get( handles.mapplot,'CurrentPoint' );
+        xy = mouse(1:1:2);
+        ax = axis;
+        dx = ax(2) - ax(1);
+        dy = ax(4) - ax(3);
+
+        [~,closestPt] = min( sqrt( ((handles.mapplot.Children.XData - xy(1))/dx).^2...
+                                    + ((handles.mapplot.Children.YData - xy(2))/dx).^2 ) );
+
+        % draw a white circle around the point
+        pos = [handles.mapplot.Children.XData(closestPt),handles.mapplot.Children.YData(closestPt)];
+        circle = plot( pos(1),pos(2),'wo' );
+
+        % switch for the delete choice
+        switch hObject.Label
+            case 'label'
+                handles.labels(closestPt) = 0;
+                handles.mapplot.Children.CData(closestPt,:) = handles.allPlotColor(1,:);
+            case 'point'
+                handles.labels(closestPt) = [];
+                handles.mapplot.Children.XData(closestPt) = [];
+                handles.mapplot.Children.YData(closestPt) = [];
+                handles.mapplot.Children.CData(closestPt,:) = [];
+                handles = st_rmdata( handles,closestPt );
+        end
+
+        % update the plots
+        delete( circle );
+        st_update_plots( handles );
+        guidata( hObject,handles );
+
+
 % auto/manual sorting
-% ------------------------------------------------------------------------- 
+% =======================================================
     % --- Initiates the sort-method dropdown list
     function sortmethod_CreateFcn(hObject,eventdata,handles)
         if ispc && isequal(get(hObject,'BackgroundColor'), get(0,'defaultUicontrolBackgroundColor'))
@@ -546,9 +671,13 @@ function varargout = sortTool(varargin)
         % set the available options
         set( hObject, 'String',...
             {'EM-GMM (gaussian mixture model)',...
+            'mEM-GMM (masked EM-GMM)',...
             'EM-TMM (t-dist. mixture model)',...
             'Km (K-means)',...
-            'VB (variational bayes)'} );
+            'VB (variational bayes)',...
+            'mVB (masked VB)',...
+            'DBSCAN',...
+            'Spectral clustering'} );
 
         % update the GUI
         guidata( hObject, handles ); 
@@ -556,7 +685,10 @@ function varargout = sortTool(varargin)
         
     % --- Executes on button press in sortmethod
     function sortmethod_Callback(hObject,eventdata,handles)
-        allmethods = {'EM-GMM','EM-TMM','Km','VB'};
+        % select a new sorting method
+
+        allmethods = {'EM-GMM','mEM-GMM','EM-TMM','Km',...
+            'VB','mVB','DBSCAN','Spectral'};
         value = get( hObject,'value' );
         handles.model.sortMethod = allmethods{value};
 
@@ -566,50 +698,92 @@ function varargout = sortTool(varargin)
         
     % --- Executes on button press in autosort.
     function autosort_Callback(hObject, eventdata, handles)        
+        % automatically sort the data projections via the specified sort method
+
         warning off;
         
-        % clear any data selection
-        handles = st_clearSelectedData( handles );
-        
         % first project the data 
-        if isempty( handles.data )
+        if ~handles.availableData
             errordlg( 'No data available. Please load data!' );
-            return;
-        elseif isnan( handles.projection )
-            disp( 'please project your data first!' );
-            return;
+            return
+        elseif ~handles.availableProjection
+            disp( 'Please project your data first!' );
+            return
+        end
+
+        % get the selected points, if any
+        if any( handles.selectedPoints )
+            pts = handles.selectedPoints;
+        else
+            pts = ~handles.selectedPoints;
         end
         
-        % now sort via automatic cluster search or manual cluster number
-        searchForK = questdlg( 'Search for number of clusters?','yes','no' );
-        switch searchForK
-            case 'Yes'
-                [~,K] = findClustNum( handles.projection',2,15 );
-            case 'No'
-                K = ( inputdlg( 'Number of clusters' ) );
-                K = str2double( cell2mat( K ) );
-            case 'Cancel'
-                return;
+        % request for the appropriate cluster number for parametric
+        % clustering algorithms
+        switch handles.model.sortMethod
+            case {'mEM-GMM','EM-GMM','EM-TMM','VB','mVB','Km'}
+                searchForK = questdlg( 'Search for number of clusters?' );
+                switch searchForK
+                    case 'Yes'
+                        [~,K] = findClustNum( handles.projection(pts,:)',2,50 );
+                    case 'No'
+                        K = [];
+                    case 'Cancel'
+                        return
+                end
+        end
+        
+        % for masked EM compute the feature matrix without concatenation
+        switch handles.model.sortMethod
+            case {'mVB','mEM-GMM'}
+                if any( isnan( handles.mask ) )
+                    disp( 'must include a masking matrix for masked-EM and masked-VB sorting' );
+                    return
+                end
+
+                % compute the projections
+                projections = compute_spike_features( gather( permute( handles.data(:,pts,:),[2,1,3] ) ),...
+                    handles.nDim,handles.model.projectMethod,handles.mask,[],false );
+
+                % compute the expanded mask
+                mask = zeros( size( projections ) );
+                for c = 1:size( handles.mask,1 )
+                    inds = c*handles.nDim-handles.nDim+1:c*handles.nDim;
+                    mask(:,inds) = repmat( handles.mask(c,pts)',1,handles.nDim );
+                end 
+            otherwise
+                projections = handles.projection(pts,:);
+                mask = [];
         end
         
         % now do the actual clustering using the method specified
-        [labels,handles.model.sortModel,handles.model.probabilities] = ...
-            st_sort_clusters( handles.projection,K,handles.model.sortMethod );
+        [labels,~] = sort_clusters( projections,K,handles.model.sortMethod,mask );
+        projections = gather( handles.projection(pts,:) );
+        [mu,sigma] = get_cluster_description( projections,labels );
+        [probs,prior] = compute_cluster_probabilities( projections,labels,mu,sigma );
         
         % change the labels to contain the original label plus consecutive
         % labels for each new cluster
-        labels = labels + min( handles.labels ) - 1; % subtract 1 to start with the minimum of the previous labels
-        
-        % refine the clusters
-        switch handles.model.sortMethod
-            case {'EM-GMM','EM-TMM','VB'}
-                [handles.labels,keep]...
-                    = st_refine_cluster( labels,handles.model.probabilities,0.1 );
-                %handles = st_rmdata( handles,~keep ); 
+        uID = unique( handles.labels );
+        if any( uID > 0 )
+            if ~any( handles.selectedPoints )
+                labels = labels + min( uID(uID > 0) )-1; % subtract 1 to start with the minimum of the previous label
+            else
+                uID = unique( handles.labels(~pts) );
+                uID(uID==0) = [];
+                changeLabels = ismember( labels,uID );
+                if ~isempty( changeLabels ) && any( changeLabels )
+                    labels(changeLabels) = labels(changeLabels) - min( labels(changeLabels) ) + max( uID ) + 1; % creates new labels to avoid overlap 
+                end
+            end
         end
         
-        % update 
-        [handles.labels,handles.probabilities] = update_labels( handles );
+        % refine the clusters of this sorting run
+        labels = st_refine_cluster( labels,probs,0.01 ); 
+                
+        % update all probabilities and labels in the handles struct
+        handles.labels(pts) = labels;
+        handles = update_labels( handles );
         handles.plotcolor = update_plot_colors( handles );
         st_update_plots( handles );
         guidata( hObject,handles );
@@ -619,26 +793,24 @@ function varargout = sortTool(varargin)
         
     % --- Executes on button press in manualsort.
     function manualsort_Callback(hObject, eventdata, handles)
-        % hObject    handle to manualsort (see GCBO)
-        % eventdata  reserved - to be defined in a future version of MATLAB
-        % handles    structure with handles and user data (see GUIDATA)
-        
+        % initiates the functionality for manual sorting (cluster cutting)
+
         % clear any data selection
         handles = st_clearSelectedData( handles );
         
         % check if data has been plotted
         axes( handles.mapplot );
         if isempty( handles.mapplot.Children )
-            if ~isnan( handles.projection )
-                st_plot_projections( handles );
+            if handles.availableProjection
+                handles.mapplotMenu = st_plot_projections( handles );
             end
         end        
         
         % set visibility of the new buttons to "on"
-        set( handles.newLabel,'enable','on','visible','on' );
-        set( handles.mergeLabel,'enable','on','visible','on' );
-        set( handles.deleteLabel,'enable','on','visible','on' );
-        set( handles.finishManual,'enable','on','visible','on' );
+        set( handles.newLabel,'enable','on' );
+        set( handles.mergeLabel,'enable','on' );
+        set( handles.deleteLabel,'enable','on' );
+        set( handles.finishManual,'enable','on' );
         set( handles.autosort,'enable','off' );
         set( handles.projectdata,'enable','off' );
         set( handles.loaddata,'enable','off' );
@@ -650,6 +822,8 @@ function varargout = sortTool(varargin)
         
     % --- Executes on button press in newLabel.
     function newLabel_Callback(hObject, eventdata, handles)
+        % manually select a new label by lasso-ing around data points
+
         disp( 'Select a new cluster' );
         axes( handles.mapplot );
 
@@ -664,6 +838,8 @@ function varargout = sortTool(varargin)
         
     % --- Executes on button press in mergeLabel.
     function mergeLabel_Callback(hObject, eventdata, handles)
+        % merges two clusters together 
+
         disp( 'Click on two clusters to merge' );
         axes( handles.mapplot );
         
@@ -686,12 +862,14 @@ function varargout = sortTool(varargin)
         end
         
         % update
-        st_clearSelectedData( handles );
+        handles = st_clearSelectedData( handles );
         guidata( hObject,handles );
 
         
     % --- Executes on button press in deleteLabel.
     function deleteLabel_Callback(hObject, eventdata, handles)
+        % deletes the clustering result, removing all previous labels
+
         disp( 'Click on a cluster to remove the label or data points' );
         axes( handles.mapplot );
 
@@ -732,62 +910,52 @@ function varargout = sortTool(varargin)
                                 handles.projection(:,handles.plotDims(2)),...
                                 position(:,1),position(:,2) );
 
-                    % TO DO
-                    % make probability vector even without having first
-                    % called the AUTOSORT function...
                     % create a new label for each new additional label
                     handles.labels(inpts) = max( handles.labels )+1;
-                    if ~any( isnan( handles.model.probabilities ) )
-                        handles.model.probabilities(:,end+1) = 0;
-                        handles.model.probabilities(inpts,:) = 0;
-                        handles.model.probabilities(inpts,end) = 1;
-                    end
                 end
                 delete( handles.manualClust{i} );
             end
         end
         
         % now hide the extra buttons    
-        set( handles.newLabel,'enable','off','visible','off' );
-        set( handles.mergeLabel,'enable','off','visible','off' );
-        set( handles.deleteLabel,'enable','off','visible','off' );
+        set( handles.newLabel,'enable','off' );
+        set( handles.mergeLabel,'enable','off' );
+        set( handles.deleteLabel,'enable','off' );
+        set( handles.finishManual,'enable','off' );
         set( handles.autosort,'enable','on' );
-        set( handles.finishManual,'enable','off','visible','off' );
         set( handles.projectdata,'enable','on' );
         set( handles.loaddata,'enable','on' );
         set( handles.replogt,'enable','on' );
         
         % update
-        [handles.labels,handles.probabilities] = update_labels( handles );
-        [handles.model.sortModel.mu,handles.model.sortModel.sigma]...
-            = get_cluster_description( handles.projection,handles.labels );
+        handles = update_labels( handles );
         handles.plotcolor = update_plot_colors( handles );
         st_update_plots( handles );
         guidata( hObject,handles );
     
         
     % --- Update all the labels
-    function [labels,probabilities] = update_labels( handles )
-        % updates the labels so that it adds new labels for each new clust
-        labels = handles.labels;
-        probabilities = handles.model.probabilities;
-        uID = unique( labels(labels~=0) );
-        possibleLabels = 1:max( uID );
-        noProb = any( isnan( probabilities ) );
-%         for i = 1:numel( uID )
-%             prevLabels = ismember( labels,uID(i) );
-%             if ~noProb                
-%                 if any( prevLabels )
-%                     probabilities(prevLabels,i) = probabilities( prevLabels,uID(i) );
-%                 end
-%             end
-%             labels(prevLabels) = i;
-%         end
+    function handles = update_labels( handles )
+        % updates the labels so that new labels are added for each new clust
         
-        % remove extra probabilities not associated with any new label
-        if ~noProb & max( labels ) < size( probabilities,2 )
-            probabilities = probabilities(:,1:max( labels ));
-        end
+        % compute the means/covariances of the clusters
+        proj = gather( handles.projection );
+        [mu,sigma] = get_cluster_description( proj,handles.labels );
+        
+        % get the probabilities of the points belonging to the clusters,
+        % assuming a gaussian mixture model
+        [probabilities,priors] = compute_cluster_probabilities( proj,handles.labels,mu,sigma );
+        
+        % store the model and probabilities. Even if only a subset of
+        % points are re-sorted, the probabilities for all points and
+        % clusters will be recomputed. This provides a working model for
+        % future spike sorting routines
+        model = struct;
+        model.mu = mu;
+        model.Sigma = sigma;
+        model.w = priors;
+        handles.model.sortModel = model;
+        handles.probabilities = probabilities;
                     
         
 % ------------------------------------------------------------------------- 

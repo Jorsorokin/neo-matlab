@@ -1,7 +1,12 @@
 # Example 3: detecting and sorting neurons for dense micro-electrode arrays
-Traditional spike detection and sorting is normally run for individual electrodes or electrode groups (as we've seen), such as tetrodes. The very clearly-separated channels ensure the same neuron is very unlikely to be detected across different channel groups, and thus, detecting and sorting can commence independently for each group. However, this distinct topological constraint is blurred in the case of dense micro-electrode arrays, where every k-neighbors of the ith channel are considered a channel group, resulting in multiple channel groups with overlapping electrodes. Detection and sorting individually for each channel group makes little sense, as it is very likely that two or more channel groups will record action potentials produced by the same neurons.
+Traditional spike detection and sorting is normally run for individual electrodes or electrode groups (as we've seen), such as tetrodes. The very clearly-separated channels ensure the same neuron is very unlikely to be detected across different channel groups, and thus, detecting and sorting can commence independently for each group. However, this distinct topological constraint is blurred in the case of dense micro-electrode arrays, where every k-neighbors of the ith channel may be considered a channel group, resulting in multiple channel groups with overlapping electrodes. Detection and sorting individually for each channel group makes little sense, as it is very likely that two or more channel groups will record action potentials produced by the same sets of neurons.
 
-One way to get around this issue, is to run an automated search algorithm that detects and eliminates redundant spikes recorded across channel groups. Conservative criteria should be met so that spikes with similar shapes but of different origins are not eliminated. The *Epoch* class contains a method - `rmRedundantSpikes` - that searches through all spike waveforms in the *Spikes* objects associated with an instance of the *Epoch*, and removes an ith spike if (a) another spike in the current epoch occurs within 0.5 ms of the ith spike, (b) that spike is associate with a *ChannelIndex* object that shares a common electrode with the *ChannelIndex* parent of the ith spike, and (c) any correlation between the ith and jth spike across the various electrodes they belong to is > 0.95. 
+One way to get around this issue, is to run an automated search algorithm that detects and eliminates redundant spikes recorded across channel groups. Conservative criteria should be met so that spikes with similar shapes but of different origins are not eliminated. 
+
+The *Epoch* class contains a method - `rmRedundantSpikes` - that searches through all spike waveforms in the *Spikes* objects associated with an instance of the *Epoch*, and removes an ith spike if:
+(a) another jth spike in the current epoch occurs within 0.5 ms of the ith spike
+(b) the jth spike is associated with a *ChannelIndex* object that shares at least one common electrode with the *ChannelIndex* parent of the ith spike
+(c) any correlation between the ith and jth spike across the various electrodes they belong to is > 0.9
 
 ``` matlab
 % Let us first reference the various Epoch instances contained in our block
@@ -18,33 +23,55 @@ end
 % objects will be correctly updated automatically
 ```
 
-While slow, this method will help remove redundancy, and should ideally be run before any spike sorting. However, one issue that arises is the dependence on subjective criteria for spike removal. Further, although redundant spikes may be eliminated, our electrodes may still awkwardly belong to many *ChannelIndex* objects, making any subsequent electrode-specific analysis (i.e number of spikes detected, associated of neurons with electrodes, etc.) non-intuitive. A better method would be to use all electrodes simultaneously for detection and sorting, thus avoiding the need for arbitrary *ChannelIndex* assignment...
+While slow, this method will help remove overlapping spikes, and should ideally be run before any spike sorting. However, one issue that arises is the dependence on arbitrary heuristics for spike removal. Further, although redundant spikes may be eliminated, our electrodes may still awkwardly belong to many *ChannelIndex* objects, making any subsequent electrode-specific analysis (i.e number of spikes detected, associated neurons with electrodes, etc.) non-intuitive. A better method would be to use all electrodes simultaneously for detection and sorting, thus avoiding the need for arbitrary *ChannelIndex* assignment...
 
 ``` matlab
 % Say we have 8 electrodes from a linear, electrode array. We will combine these into
-% one single *ChannelIndex* object, so that we may perform simultaneous spike detection.
+% one single ChannelIndex object, so that we may perform simultaneous spike detection.
+electrodes = block.getChild( 'Electrode' );
 block.removeChild( 'ChannelIndex' ); % removes old ChannelIndex objects
 block.addChild( ChannelIndex( 1 ) ); % creates a new ChannelIndex, with ID = 1
 block.getChild( 'ChannelIndex' ).addChild( electrodes );
 ```
 
-Now that we've placed our electrodes into a single ChannelIndex object, we will perform spike detection. The algorithm is a MATLAB-implementation of the [Masked EM algorithm](https://www.ncbi.nlm.nih.gov/pubmed/25149694). The Masked EM algorithm uses the spatio-temporal information of the recorded voltages across our continuous channels to create spatio-temporally "connected components" for each detected action potential, and "mask" channels not spatio-temporally connected. Thus, to perform the algorithm, we need to supply a channel map that has information regarding the spatial organization of the probe.
+We can now detect spikes using ALL electrodes simultaneously. Because for any ith spike a relatively small percentage of channels will actually have recorded the voltage fluctuation corresponding to that spike (and the others noise), we need some kind of book-keeping matrix to keep track of which channels actually recorded which spikes. This is implemented as a mask matrix (M), with M(i,j) > 0 if the ith channel recorded the jth spike, and 0 otherwise. 
+
+Before we implement masked spike detection, we need to include a few more pieces of information into our *ChannelIndex*. Specifically, the electrodes need to be spatially consecutively organized, and their distances from one another should be specified, which helps eliminate artifactual spikes that are detected across channels > 200um apart from one another.
 
 ``` matlab
-% Supply our channel map into the block parent, so that we may correctly line up our electrodes during spike detection
-block.chanMap = [1,3,5,7,2,4,6,8]; % wrap-around style, common among many silicon probes
+% add our channel map and channel distances
+%   note that channel distances are NOT mapped correctly, 
+%   but correspond to the order of the electrodes contained in the block
+chanMap = [1,3,5,7,2,4,6,8];
+chanDistances = [0,200,50,250,100,300,150,350]; 
+chanind = block.getChild( 'ChannelIndex' );
+chanind.chanMap = chanmap';
+chanind.chanDistances = chanDistances';
+
+% redetect spikes using all channels simultaneously. To do so, we just include the optional argument 
+% into our detectSpikes() method
+chanind.detectSpikes( 4,500,true ); % the "true" specifies masked-detection (all channels)
 ```
 
-Now we can run the masked-EM algorithm. The method for detection is contained in the *ChannelIndex* object, and is called via `detectSpikes_masked()`. For each component discovered by the algorithm (using 2-threshold floodfill & connected graphs), the spike onset is determined using the center of mass of all points and channels associated with this spike.
+Now that we've re-detected spikes and created our mask matrix (see the [Masked EM algorithm](https://www.ncbi.nlm.nih.gov/pubmed/25149694) that describes how the mask matrix is created) we can sort our spikes. The masking matrix greatly improves sorting performance, as channels that do not belong to any ith spike are "masked" during feature extraction. This is important as PCA and other dimensionality reduction techniques can be largely dominated by noise electrodes provided there are sufficient numbers of them vs. electrodes recording true spikes. 
 
 ``` matlab
-% set up the detection parameters
-lowThresh = 2.5; % for first part of flood-fill
-highThresh = 4; % for the second part
+% set up the parameters for sorting
+nDim = 5;
+method = 'PCA'; % see 'compute_features.m' for other options
+sortMethod = 'EM-GMM'; % could be 'VB', 'Km', 'DBSCAN', or 'Spectral'
+reject = 0.05; 
+mask = true;
 
-% run the spike detection
-chanind = block.getChild( 'ChannelIndex' );
-chanind.detectSpikes_masked( lowThresh,highThresh );
+chanind.sortSpikes( 'level',nDim,'method',method,'sortMethod',sortMethod,'reject',reject,'mask',mask );
+```
+
+Alternatively, we could have sorted using the *sortTool* GUI, which also accepts a masking matrix...
+
+``` matlab
+% because we have created and stored the masking matrix and channel distances into this
+% ChannelIndex object, we do not need to explicitly provide them into the sorting GUI
+chanind.sortGUI(); 
 ```
 
 

@@ -131,9 +131,13 @@ classdef Epoch < Container
             
             % pull out the signals
             signals = self.getChild( 'Signal',electrodes );
+            if ~isempty( signals )
+                noElectrode = cellfun( @isempty,{signals.electrode} ); % removes signals not from Electrodes (i.e. stims,etc)
+                signals(noElectrode) = [];
+            end
             if numel( signals ) == 0
                 disp( 'No signals from specified electrodes available' );
-                return;
+                return
             end
 
             % create an index reference for extracting the right signals
@@ -274,7 +278,7 @@ classdef Epoch < Container
             %       (i.e. within the refractory period)
             %   (b) they originate from ChannelIndex objects with overlapping electrodes
             %   (c) the shapes of the action potentials alligned to their 
-            %       peaks are highly overlapping ( >= 0.95 correlation )
+            %       peaks are highly overlapping ( >= 0.9 correlation )
             %
             % If any ith spike is deemed redundant, then by default the spike is
             % is removed from Spike objects except for the one 
@@ -296,7 +300,7 @@ classdef Epoch < Container
             % create our anonymous functions for checking redundant spikes
             % ======================================================================
             % (a) checks if any spike time in each Spikes object close to the spike time "t"
-            checkA = @(x,t) cellfun( @(c)(find( abs( c-t ) <= 0.0005 )),x,'un',0 ); 
+            checkA = @(x,t) cellfun( @(c)(find( abs( c-t ) <= 5e-4 )),x,'un',0 ); 
             
             % (b) checks if any other Spikes objects associated with a common electrode 
             checkB = @(x,ch) cellfun( @(c)(find( ismember( c,ch ) )),x,'un',0 );
@@ -337,9 +341,9 @@ classdef Epoch < Container
                     end
                     
                     % compute the spike-waveform correlation coefficients and 
-                    % check for strong correlations.
+                    % check for strong correlations
                     p = corrcoef( waveforms );
-                    if ~any( p(:,indices) >= 0.95 )
+                    if ~any( p(:,indices) >= 0.9 )
                         t = t+1;
                         continue
                     end
@@ -348,7 +352,7 @@ classdef Epoch < Container
                     [~,keep] = max( range( waveforms ) );
                     for j = redundant
                         if j == keep
-                            continue;
+                            continue
                         end
                         spikes(j).times(nearbySpikes{j}) = [];
                         spikes(j).voltage(:,nearbySpikes{j},:) = [];

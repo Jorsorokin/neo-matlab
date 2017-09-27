@@ -37,7 +37,7 @@ function [psth,psthAvg,variance,FF,ISI,bw] = CalculatePSTH(SpikeTimes,start,vara
 %           (default = 1s);
 %   bin_width = bin (ms) for PSTH calculation. Default = [] (search for optimal bw)
 %   name = name to save figure (default = "psth.pdf")
-%   saving = 0 or 1 (default 1). If 1, saves figures to current directory.
+%   saving = 0 or 1 (default 0). If 1, saves figures to current directory.
 %   
 %
 %               <<< OUTPUTS <<<
@@ -76,7 +76,7 @@ if nargin>5 && ~isempty(varargin{4})
     name = varargin{4}; end % default no name for saving figs
 if nargin>6 && ~isempty(varargin{5})
     saving = varargin{5};
-else saving = 1; end
+else saving = 0; end
 
 
 % check if SpikeTimes is cell or matrix

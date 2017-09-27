@@ -105,14 +105,14 @@ classdef Signal < Container
 
             % plot the spikes on top of the voltage, if any
             if ~isnan( self.epoch )
-                [~,times,~,neuronID,chanInd] = self.getParent( 'Electrode' ).getSpikes( self.epoch );
+                [~,times,~,neuronID,chanind] = self.getParent( 'Electrode' ).getSpikes( self.epoch );
                 uniqueID = unique( neuronID );
-                uniqueChanInd = unique( chanInd );
+                uniqueChanInd = unique( chanind );
                 cmap = colormap( jet(numel( uniqueID )) ); % color signifies neuron ID
                 markers = {'.','x','o','^','s'}; % marker type signifies channelindex
                 for id = uniqueID
                     for ch = 1:numel( uniqueChanInd )
-                        spikes = times( ismember( neuronID,id) & ismember( chanInd,uniqueChanInd(ch) ) );
+                        spikes = times( ismember( neuronID,id) & ismember( chanind,uniqueChanInd(ch) ) );
                         scatter( spikes + start,self.voltage(round( spikes*self.fs )),80,markers{ch} );
                     end
                 end

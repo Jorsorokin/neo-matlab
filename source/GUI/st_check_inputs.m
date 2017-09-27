@@ -3,7 +3,7 @@ function p = st_check_inputs( inputs )
     %
     % parses the optional name-value inputs passed into the "sortTool" GUI
     % upon creation of the GUI instance
-    names = {'data','labels','times','trials','projection'};
+    names = {'data','labels','times','trials','projection','mask','location'};
     defaults = nan( 1,numel( names ) );
     p = inputParser;
     for j = 1:numel( names )
@@ -13,7 +13,7 @@ function p = st_check_inputs( inputs )
     % parse the inputs
     p.parse(inputs{:});
     p = p.Results;
-    if max( any( p.data ) ) || max( any( p.projection ) )
+    if max( any( gather(p.data) ) ) | max( any( p.projection ) )
         nsp = max( size( p.data,2 ),size( p.projection,1 ) );
         if isnan( p.labels )
             p.labels = zeros( 1,nsp,'uint8' );

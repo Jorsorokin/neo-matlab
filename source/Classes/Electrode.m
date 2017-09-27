@@ -40,6 +40,7 @@ classdef Electrode < Container
             %   plot
             %   getSpikes
             %   getVoltage
+            %   resampleSignals
             %   
             %       * see also methods in the Container class
             
@@ -164,6 +165,17 @@ classdef Electrode < Container
                 voltage = nan;
             end
         end
+        
+        
+        function resampleSignals( self,p,q )
+            % resampleSignals( self,p,q )
+            %
+            % extract voltage traces from child Signal objects and resample
+            % according to the ratio p/q
+            for j = 1:self.nSignals
+                self.getChild( 'Signal',j ).resample( p,q );
+            end
+        end
                 
         
         function hL = plot( self )
@@ -206,7 +218,7 @@ classdef Electrode < Container
             % clean up graph
             xlabel( 'time (s)' );
             ylabel( 'epoch' );
-            suptitle( sprintf( 'Electrode: %i, all Epochs',self.electrodeNum ) );  
+            title( sprintf( 'Electrode: %i, all Epochs',self.electrodeNum ) );  
             darkPlot( gcf );           
             hold off;
         end

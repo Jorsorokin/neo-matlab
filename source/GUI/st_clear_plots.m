@@ -5,8 +5,10 @@ function st_clear_plots( handles )
     % the sortTool GUI
     
     % check for validity of plot handles & clear each
-    if ~isa( handles.waveformplot,'double' ) && isvalid( handles.waveformplot )
-        cla( handles.waveformplot );
+    for c = 1:numel( handles.waveformplot )
+        if ~isa( handles.waveformplot(c),'double' ) && isvalid( handles.waveformplot(c) )
+            cla( handles.waveformplot(c) );
+        end
     end
     if ~isa( handles.isiplot,'double' ) && isvalid( handles.isiplot )
         cla( handles.isiplot );

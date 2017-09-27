@@ -7,7 +7,7 @@ function st_plot_raster( handles )
     % check if any spike times exist
     if isnan( handles.times )
         disp( 'No spike times available' );
-        return;
+        return
     end
     
     % get the selected data points
@@ -15,7 +15,7 @@ function st_plot_raster( handles )
     handles.rasterplot.Parent.Visible = 'on';
     pts = handles.selectedPoints; % only plots selected (highlighted) points
     if ~any( pts )
-        return;
+        return
     end
     
     % loop over trials, plot a scatter of points along rows for each trial,

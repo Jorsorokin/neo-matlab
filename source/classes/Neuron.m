@@ -97,14 +97,15 @@ classdef Neuron < Container
         end
               
         
-        function [snips,times,epNum] = getSpikes( self,varargin )
-            % [snips,times,epNum] = getSpikes( self,(epochs) )
+        function [snips,times,epNum,mask] = getSpikes( self,varargin )
+            % [snips,times,epNum,mask] = getSpikes( self,(epochs) )
             %
             % extracts the spike voltage waveforms and spike times across 
             % epochs for this Neuron object. Returns snips, spike times,
-            % and a vector "epNum" refering to which epoch (Spikes obj)
-            % each voltage/spiketime came from. Optionally specify the
-            % spike objects (i.e. epochs) to extract.
+            % a vector "epNum" refering to which epoch (Spikes obj)
+            % each voltage/spiketime came from, and a sparse matrix "mask"
+            % refering to the spike mask created if running masked spike detection.
+            % Optionally specify the spike objects (i.e. epochs) to extract.
             
             % check inputs
             if nargin > 1 && ~isempty( varargin{1} )
@@ -131,13 +132,18 @@ classdef Neuron < Container
             times = nan( max( nSp ),nEpoch );
             snips = nan( npoints,sum( nSp ),self.nChan );
             epNum = uint16( zeros( 1,sum( nSp ) ) );
+            mask = zeros( self.nChan,sum( nSp ) );
             
             % loop over Spike objects
             counter = 0;
             for i = 1:numel( child )
-                snips(:,counter+1:counter+nSp(i),:) = child(i).voltage;
+                thisInd = counter+1:counter+nSp(i);
+                snips(:,thisInd,:) = child(i).voltage;
                 times(1:nSp(i),i) = child(i).times;
-                epNum(counter+1:counter+nSp(i)) = child(i).epoch;
+                epNum(thisInd) = child(i).epoch;
+                if ~isempty( child(i).mask )
+                    mask(:,thisInd) = child(i).mask;
+                end
                 counter = counter + nSp(i);
             end
         end
@@ -152,7 +158,7 @@ classdef Neuron < Container
             nChild = numel( spChild );
             if isempty( spChild )
                 disp( 'no spikes found' );
-                return;
+                return
             end
             
             if nargin < 2 || isempty( varargin{1} )
@@ -164,9 +170,11 @@ classdef Neuron < Container
             cmap = colormap( jet(nChild) );
             
             % plot spike waveforms for each "Spikes" child
+            set( gcf,'Visible','off' );
             for j = 1:nChild
                 spChild(j).plot( cmap(j,:),chans );
             end
+            set( gcf,'Visible','on' );
             suptitle( sprintf( 'Unit %i',self.ID ) );
         end
         

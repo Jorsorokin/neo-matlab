@@ -54,6 +54,7 @@ classdef Spikes < Container
             % Methods:
             %   plot
             %   smooth
+            %   denoise
             %
             %       * see also methods in the Container object
 
@@ -108,25 +109,43 @@ classdef Spikes < Container
                 nchan = numel( chans ); 
             end
             
+            cols = ceil( sqrt( nchan ) );
+            rows = ceil( nchan / cols );
             time = (0:size( self.voltage,1 )-1) / self.fs * 1000;
+            ylimits = [min( self.voltage(:) ),max( self.voltage(:) )];
             
-            for ch = 1:nchan
-                subplot( nchan,1,ch ); hold on;
-                %fillPlot( self.voltage(:,:,chans(ch))',time,'sd',[],[],col );
+            counter = 0;
+            rowCounter = 0;
+            for ch = chans
+                counter = counter+1;
+                subplot( rows,cols,counter ); hold on;
                 if ~isempty( self.mask )
-                    bestSpikes = self.mask(ch,:) == 1;
+                    bestSpikes = find( self.mask(ch,:) == 1 );
                 else
                     bestSpikes = 1:self.nSpikes;
                 end
-                plot( time,self.voltage(:,bestSpikes,chans(ch)),'color',col );
-                set( gca,'xlim',[time(1) time(end)] );
-                xlabel( 'time (ms)' );
-                ylabel( self.voltUnits );
-                title( sprintf( 'CH %i',chans(ch) ) );
+                if ~isempty( bestSpikes )
+                    %fillPlot( self.voltage(:,bestSpikes,ch)',time,'sd',[],[],col );
+                    plot( time,self.voltage(:,bestSpikes,ch),'color',col );
+                end
+
+                % change plot appearance
+                set( gca,'xlim',[time(1) time(end)],'ylim',ylimits,'color','k','ycolor','k','xcolor','k' );
+                title( sprintf( 'CH %i',ch ),'color','w' );
+                if mod( counter,cols ) == 1
+                    ylabel( self.voltUnits );
+                    set( gca,'ycolor','w' );
+                    rowCounter = rowCounter + 1;
+                end
+                if rowCounter == rows
+                    xlabel( 'time (ms)' );
+                    set( gca,'xcolor','w' );
+                end
             end
 
-            % convert to dark theme
-            darkPlot( gcf );
+            % convert to dark theme and link plots
+            set( gcf,'color','k' );
+            linkaxes( get( gcf,'Children'),'xy' );
         end
         
         
@@ -157,7 +176,73 @@ classdef Spikes < Container
             % store back into self
             self.voltage = snips;
         end
-                   
+        
+        function svdDenoise( self,varargin )
+            % svdDenoise( self,(lastEig,varExp) )
+            %
+            % uses SVD to denoise the spike waveforms for each channel
+            % by setting the singular values > lastEig equal to 0. Default
+            % value for "lastEig" is that which explains >= "varExp" of the
+            % variance. If "mask" is available in the current Spike object,
+            % only spikes with mask > 0 for each channel will be used in
+            % the SVD, to avoid excessive contamination of noise in the top
+            % singular vectors/values of the SVD decomposition.
+            %
+            % The other optional argument ('varExp') allows the user to
+            % specify how much variance to keep, rather than specifying the
+            % exact number of eigenvectors. Default value is 75%
+            
+            % check if "lastEig" provided
+            if nargin > 2 && ~isempty( varargin{1} )
+                lastEig = varargin{1};
+                if lastEig > size( self.voltage,2 )
+                    disp( 'requested # of eigenvectors is greater than those available' );
+                    return
+                end
+            end
+            
+            % check for varExp
+            if nargin > 3 && ~isempty( varargin{2} )
+                varExp = varargin{2};
+                if varExp > 1 % likely provided as a probability
+                    disp( 'varExp must lie within [0,1]' );
+                    return
+                end
+            else
+                varExp = 0.75;
+            end
+
+            % loop over channels
+            for c = 1:size( self.voltage,3 )
+                
+                % check for mask matrix
+                if ~isempty( self.mask )
+                    unmasked = self.mask(c,:) > 0;
+                    if nnz( unmasked ) < 5
+                        continue % too few points for accurate denoising
+                    end
+                else
+                    unmasked = true( 1,self.nSpikes );
+                end
+                
+                % perform svd 
+                [u,s,v] = svd( self.voltage(:,unmasked,c),'econ' );
+                s = diag( s );
+                
+                % find final singular vector to keep
+                if ~exist( 'lastEig','var' ) 
+                    last = find( cumsum( s ) / sum( s ) >= varExp,1 );
+                    s(last+1:end) = 0;
+                else
+                    s(lastEig+1:end) = 0;
+                end
+                
+                % reconstruct using a reduced singular vector subspace
+                self.voltage(:,unmasked,c) = u*diag( s )*v';
+                clear u s v
+            end
+        end
+
     end % methods
     
 end

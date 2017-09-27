@@ -300,6 +300,7 @@ classdef Container < handle
             %
             % delete this object from memory. Remove from parents and 
             % remove all children of this object
+            
             for j = 1:numel( self.parent )
                 self.removeParent( class( self.parent{1} ) );
             end

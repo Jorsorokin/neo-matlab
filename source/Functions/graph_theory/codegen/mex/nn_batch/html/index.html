@@ -1,0 +1,502 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<!-- saved from url=(0014)about:internet -->
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+<meta http-equiv="content-type" content="text/html; charset=utf-8" />
+<title>Code Generation Report</title>
+<link rel="stylesheet" type="text/css" href="resources/eml_report.css" />
+<link rel="stylesheet" type="text/css" href="resources/jQuery/ui.resizable.css" />
+<link rel="stylesheet" type="text/css" href="index.css" />
+<style>
+	pre.code{
+		-moz-tab-size: 4; /* For Firefox */
+		-o-tab-size: 4; /* For Opera 10.6-12.1 */
+		tab-size: 4; /* For Chrome */
+	}
+</style>
+<script type="text/javascript" src="resources/jQuery/jquery-1.3.2.min.js"></script>
+<script type="text/javascript" src="resources/jQuery/jquery-ui-1.7.custom.min.js"></script>
+<script type="text/javascript" src="resources/jQuery/jquery.tablesorter.mod.js"></script>
+<script type="text/javascript" src="resources/jQuery/jquery.hotkeys-0.7.8.js"></script>
+<script type="text/javascript" src="resources/eml_report_interactions.js"></script>
+<script type="text/javascript" src="resources/eml_report_layout.js"></script>
+<script type="text/javascript" src="rtwshrink.js"></script>
+<script type="text/javascript">
+var localizedMessages = {
+    callSelectPrompt: "Select a function call:",
+    callSelectSource: "Calls from this function",
+    callSelectTarget: "Calls to this function",
+    infoForExpression: "Information for the selected expression:",
+    infoForVarType: "Information for the selected variable:",
+    infoForVarConst: "Information for the selected compile-time constant:",
+    infoForVarNone: "This variable does not have information associated with it.",
+    infoForFilter: "Matched {0}/{1} functions, {2}/{3} methods",
+    autoExtrinsicCall: "Only supported within the MATLAB environment."
+};
+var keyBindings = {
+        selectMCodeTab: "Ctrl+m",
+    selectCallStackTab: "Ctrl+k",
+        selectCCodeTab: "Ctrl+c",
+       selectReportTab: "Ctrl+r",
+     selectCenterPanel: "Ctrl+w",
+      selectSummaryTab: "Ctrl+s",
+     selectMessagesTab: "Ctrl+a",
+    selectWatchListTab: "Ctrl+v",
+     selectBuildLogTab: "Ctrl+t",
+    clearAllHighlights: "Esc"
+};
+var functionInfoTable = {
+ MATLABcode1: "nn_batch1_mcode.html",
+ fpath1: "Z:/matlabscripts/SpikeSorting/Functions/graph_theory/nn_batch.m",
+ lines1: [1, 1, 27],
+ watch1: "nn_batch1_watch.html",
+ title1: "Function: <span class='functionname'><a title='Z:&nbsp;\\matlabscripts\\SpikeSorting\\Functions\\graph_theory\\nn_batch.m' class='functionlink' href=\"matlab: open('Z:\\matlabscripts\\SpikeSorting\\Functions\\graph_theory\\nn_batch.m')\">nn_batch</a></span>",
+ tcall1: [  ],
+ scall1: [ [ "From line 12 to find_blockIndex_range", "85#srcline1" ] ],
+ MATLABcode85: "find_blockIndex_range85_mcode.html",
+ fpath85: "Z:/matlabscripts/SpikeSorting/Functions/misc/find_blockIndex_range.m",
+ lines85: [1, 1, 36],
+ watch85: "find_blockIndex_range85_watch.html",
+ title85: "Function: <span class='functionname'><a title='Z:&nbsp;\\matlabscripts\\SpikeSorting\\Functions\\misc\\find_blockIndex_range.m' class='functionlink' href=\"matlab: open('Z:\\matlabscripts\\SpikeSorting\\Functions\\misc\\find_blockIndex_range.m')\">find_blockIndex_range</a></span>",
+ tcall85: [ [ "From nn_batch line 12", "1#F85N4:B60" ] ],
+ scall85: [  ],
+ rootFcnID: "1",
+ firstPage: "1",
+ htmlRoot: "Z:/matlabscripts/SpikeSorting/Functions/graph_theory/codegen/mex/nn_batch/html/"
+};
+var scriptInfoTable = {
+ fpath1: "Z:/matlabscripts/SpikeSorting/Functions/graph_theory/nn_batch.m",
+ fpath2: "C:/MATLAB/R2017a/toolbox/eml/eml/+coder/+internal/isBuiltInNumeric.m",
+ fpath3: "C:/MATLAB/R2017a/toolbox/eml/eml/+coder/+internal/+scalar/floor.m",
+ fpath4: "C:/MATLAB/R2017a/toolbox/eml/eml/+coder/+internal/applyScalarFunctionInPlace.m",
+ fpath5: "C:/MATLAB/R2017a/toolbox/eml/lib/matlab/elfun/floor.m",
+ fpath6: "C:/MATLAB/R2017a/toolbox/shared/coder/coder/+coder/+internal/narginchk.m",
+ fpath7: "C:/MATLAB/R2017a/toolbox/eml/lib/matlab/elmat/private/eml_isequal_core.m",
+ fpath8: "C:/MATLAB/R2017a/toolbox/eml/lib/matlab/elmat/isequal.m",
+ fpath9: "C:/MATLAB/R2017a/toolbox/eml/eml/+coder/+internal/constNonSingletonDim.m",
+ fpath10: "C:/MATLAB/R2017a/toolbox/eml/lib/matlab/elmat/isnan.m",
+ fpath11: "C:/MATLAB/R2017a/toolbox/eml/eml/+coder/+internal/allOrAny.m",
+ fpath12: "C:/MATLAB/R2017a/toolbox/eml/lib/matlab/ops/any.m",
+ fpath13: "C:/MATLAB/R2017a/toolbox/eml/lib/matlab/lang/error.m",
+ fpath14: "C:/MATLAB/R2017a/toolbox/eml/eml/+coder/+internal/scalexpCompatible.m",
+ fpath15: "C:/MATLAB/R2017a/toolbox/eml/eml/+coder/+internal/div.m",
+ fpath16: "C:/MATLAB/R2017a/toolbox/eml/lib/matlab/ops/rdivide.m",
+ fpath17: "C:/MATLAB/R2017a/toolbox/eml/lib/matlab/ops/mrdivide.p",
+ fpath18: "C:/MATLAB/R2017a/toolbox/eml/eml/+coder/+internal/scalarEg.m",
+ fpath19: "C:/MATLAB/R2017a/toolbox/eml/lib/fixedpoint/isnumerictype.m",
+ fpath20: "C:/MATLAB/R2017a/toolbox/eml/lib/fixedpoint/isfimath.m",
+ fpath21: "C:/MATLAB/R2017a/toolbox/eml/lib/fixedpoint/isfi.m",
+ fpath22: "C:/MATLAB/R2017a/toolbox/eml/lib/matlab/elmat/intmax.m",
+ fpath23: "C:/MATLAB/R2017a/toolbox/eml/lib/matlab/elmat/intmin.m",
+ fpath24: "C:/MATLAB/R2017a/toolbox/eml/lib/matlab/eml/eml_int_forloop_overflow_check.m",
+ fpath25: "C:/MATLAB/R2017a/toolbox/eml/eml/+coder/+internal/scalexpAllocNoCheck.m",
+ fpath26: "C:/MATLAB/R2017a/toolbox/eml/eml/+coder/+internal/scalexpAlloc.m",
+ fpath27: "C:/MATLAB/R2017a/toolbox/eml/eml/+coder/+internal/isFloatClass.m",
+ fpath28: "C:/MATLAB/R2017a/toolbox/eml/eml/+coder/+internal/floatModel.m",
+ fpath29: "C:/MATLAB/R2017a/toolbox/eml/lib/matlab/elmat/private/eml_eps.m",
+ fpath30: "C:/MATLAB/R2017a/toolbox/eml/lib/matlab/elmat/eps.m",
+ fpath31: "C:/MATLAB/R2017a/toolbox/eml/lib/matlab/elmat/isinf.m",
+ fpath32: "C:/MATLAB/R2017a/toolbox/eml/lib/matlab/elmat/isfinite.m",
+ fpath33: "C:/MATLAB/R2017a/toolbox/eml/eml/+coder/+internal/nan.m",
+ fpath34: "C:/MATLAB/R2017a/toolbox/eml/eml/+coder/+internal/+scalar/mod.m",
+ fpath35: "C:/MATLAB/R2017a/toolbox/eml/eml/+coder/+internal/applyScalarFunction.m",
+ fpath36: "C:/MATLAB/R2017a/toolbox/eml/lib/matlab/elfun/mod.m",
+ fpath37: "C:/MATLAB/R2017a/toolbox/eml/lib/matlab/ops/colon.m",
+ fpath38: "C:/MATLAB/R2017a/toolbox/eml/eml/+coder/+internal/+scalar/abs.m",
+ fpath39: "C:/MATLAB/R2017a/toolbox/eml/lib/matlab/elfun/abs.m",
+ fpath40: "C:/MATLAB/R2017a/toolbox/shared/coder/coder/+coder/+internal/indexIntRelop.m",
+ fpath41: "C:/MATLAB/R2017a/toolbox/eml/eml/+coder/+internal/indexMinus.m",
+ fpath42: "C:/MATLAB/R2017a/toolbox/eml/eml/+coder/+internal/indexDivide.m",
+ fpath43: "C:/MATLAB/R2017a/toolbox/eml/eml/+coder/+internal/indexTimes.m",
+ fpath44: "C:/MATLAB/R2017a/toolbox/eml/eml/+coder/+internal/indexPlus.m",
+ fpath45: "Z:/matlabscripts/SpikeSorting/Functions/misc/find_blockIndex_range.m",
+ fpath46: "C:/MATLAB/R2017a/toolbox/eml/eml/+coder/+internal/assertValidDim.m",
+ fpath47: "C:/MATLAB/R2017a/toolbox/eml/eml/+coder/+internal/conjtimes.m",
+ fpath48: "C:/MATLAB/R2017a/toolbox/eml/eml/+coder/+internal/prodsize.m",
+ fpath49: "C:/MATLAB/R2017a/toolbox/eml/eml/+coder/+internal/+blas/inline.m",
+ fpath50: "C:/MATLAB/R2017a/toolbox/eml/eml/+coder/+internal/+blas/use_refblas.m",
+ fpath51: "C:/MATLAB/R2017a/toolbox/eml/eml/+coder/+internal/+blas/threshold.m",
+ fpath52: "C:/MATLAB/R2017a/toolbox/eml/eml/+coder/+internal/+blas/xdot.m",
+ fpath53: "C:/MATLAB/R2017a/toolbox/eml/eml/+coder/+internal/+refblas/xdotx.m",
+ fpath54: "C:/MATLAB/R2017a/toolbox/eml/eml/+coder/+internal/+refblas/xdot.m",
+ fpath55: "C:/MATLAB/R2017a/toolbox/eml/eml/+coder/+internal/+blas/BLASApi.m",
+ fpath56: "C:/MATLAB/R2017a/toolbox/eml/eml/+coder/+internal/+blas/int.m",
+ fpath57: "C:/MATLAB/R2017a/toolbox/eml/eml/+coder/+internal/+blas/size_ptr.m",
+ fpath58: "C:/MATLAB/R2017a/toolbox/coder/coder/+coder/+internal/c_cast.p",
+ fpath59: "C:/MATLAB/R2017a/toolbox/eml/eml/+coder/+internal/+blas/xdotc.m",
+ fpath60: "C:/MATLAB/R2017a/toolbox/eml/lib/matlab/specfun/dot.m",
+ fpath61: "C:/MATLAB/R2017a/toolbox/eml/lib/matlab/ops/eml_mtimes_helper.m",
+ fpath62: "C:/MATLAB/R2017a/toolbox/eml/eml/+coder/+internal/+blas/xgemm.m",
+ fpath63: "C:/MATLAB/R2017a/toolbox/eml/eml/+coder/+internal/+refblas/xgemm.m",
+ fpath64: "C:/MATLAB/R2017a/toolbox/eml/lib/matlab/elmat/bsxfun.m",
+ fpath65: "C:/MATLAB/R2017a/toolbox/eml/eml/+coder/+internal/minOrMax.m",
+ fpath66: "C:/MATLAB/R2017a/toolbox/eml/lib/matlab/datafun/max.m",
+ fpath67: "C:/MATLAB/R2017a/toolbox/eml/eml/+coder/+internal/useParforConst.m",
+ fpath68: "C:/MATLAB/R2017a/toolbox/eml/lib/matlab/sparfun/issparse.m",
+ fpath69: "C:/MATLAB/R2017a/toolbox/eml/eml/+coder/+internal/isDomainError.m",
+ fpath70: "C:/MATLAB/R2017a/toolbox/eml/eml/+coder/+internal/error.m",
+ fpath71: "C:/MATLAB/R2017a/toolbox/eml/eml/+coder/+internal/+scalar/sqrt.m",
+ fpath72: "C:/MATLAB/R2017a/toolbox/eml/lib/matlab/elfun/sqrt.m",
+ fpath73: "C:/MATLAB/R2017a/toolbox/eml/eml/+coder/+internal/nonSingletonDim.m",
+ fpath74: "C:/MATLAB/R2017a/toolbox/eml/eml/+coder/+internal/sortIdx.m",
+ fpath75: "C:/MATLAB/R2017a/toolbox/eml/eml/+coder/+internal/sort.m",
+ fpath76: "C:/MATLAB/R2017a/toolbox/eml/lib/matlab/datafun/sort.m"
+};
+</script>
+</head>
+<body>
+
+<div class="west">
+<ul class="ui-tabs-nav">
+<li class="ui-tabs-nav-item ui-tabs-selected"><span class="tab-link" id="MATLABcode"><span>MATLAB code</span></span></li>
+<li class="ui-tabs-nav-item"><span class="tab-link" id="callstack"><span>Call stack</span></span></li>
+<li class="ui-tabs-nav-item"><span class="tab-link" id="ccode"><span>C code</span></span></li>
+</ul>
+<div id="MATLABcodebody" class="ui-tabs-panel">
+<!-- Begin Filter -->
+<div class="grayline methodset" onclick="filterClick(event);">
+<a class="collapsed">Filter</a>
+</div>
+<div id="filterbody" class="hidden">
+<table class="myfunc-filter-tbl">
+<tr>
+<td title="Use this filter to display only functions and methods that contain variables or expressions with the specified attributes." colspan="2" class="checkbox">
+<div class="myfunc-filterby-chk"><input type="checkbox" class="filterenable" />
+<div class="filter-enable-lbl">Filter functions and methods</div></div></td></tr><tr>
+<td class="label"><div class="myfunc-filterby-lbl">Filter by:</div></td>
+<td class="select">
+<div class="filters">
+<select class="myfunc-filterby">
+<option id="size">Size</option>
+<option id="complex">Complexity</option>
+<option id="class">Class</option>
+</select>
+</div>
+</td>
+</tr>
+
+<tr>
+<td class="label"><div class="myfunc-filterstr-lbl">Filter:</div></td>
+<td class="input"><div>
+
+<div class="size">
+<select class="myfunc-filter size">
+<option value="1 85">1 x 1</option>
+<option value="1 85">1 x <b>:</b>?</option>
+<option value="1"><b>:</b>? x <b>:</b>?</option>
+</select>
+</div>
+
+<div class="complex">
+<select class="myfunc-filter complex">
+<option value="">Complex values</option>
+<option value="1 85">Real values</option>
+</select>
+</div>
+<!-- Begin Class Filter -->
+<div class="class">
+<select class="myfunc-filter class">
+<option value="1 85">double</option>
+</select>
+</div>
+<!-- End Class Filter -->
+</div>
+</td>
+</tr>
+</table>
+<div class="myfunc-count"></div>
+</div>
+<!-- End Filter -->
+<div class="grayline methodset" onmouseover="callTreeMouseOver(event);" onmouseout="callTreeMouseOut(event);" onclick="functionSetClick(event);">
+<a class="expanded">Functions</a>
+</div>
+<!-- Begin Function Tree -->
+<div id="functiontreebody">
+<div class="functionwrapper" onmouseover="callTreeMouseOver(event);" onmouseout="callTreeMouseOut(event);" onclick="functionTreeClick(event);">
+<ol class="tree">
+<!-- Begin Function Tree Roots -->
+<li class="leaf  passed"><a href="#" class="fcn  " id="F85N4:F1">find_blockIndex_range</a></li>
+<li class="leaf  passed"><a href="#" class="fcn  " id="F1N5:F2">nn_batch</a></li>
+<!-- End Function Tree Roots -->
+</ol>
+<!-- Function Tree Nodes -->
+<div class="functiontreenodes hidden">
+</div>
+<!-- End Function Tree Nodes -->
+</div>
+</div>
+<!-- End Function Tree -->
+<!-- Begin Class Tree -->
+<div class="grayline methodset" onmouseover="callTreeMouseOver(event);" onmouseout="callTreeMouseOut(event);" onclick="methodSetClick(event);">
+<a class="expanded">Classes</a>
+</div>
+<div id="classlistbody">
+<div class="classwrapper" onmouseover="callTreeMouseOver(event);" onmouseout="callTreeMouseOut(event);" onclick="classTreeClick(event);">
+<ol class="tree">
+<!-- Begin Class Tree Roots -->
+<!-- End Class Tree Roots -->
+</ol>
+<!-- Class Tree Nodes -->
+<div class="classlistnodes hidden">
+</div>
+</div>
+</div>
+<!-- End Class Tree -->
+</div>
+<!-- Begin Call Tree -->
+<div id="callstackbody" class="ui-tabs-panel hidden">
+<div class="treewrapper" onmouseover="callTreeMouseOver(event);" onmouseout="callTreeMouseOut(event);" onclick="callTreeClick(event);">
+<ol class="tree">
+<!-- Call Tree Root -->
+<li class="node collapsed passed"><a href="#" class="fcn  " id="F1N5:L1">nn_batch</a>
+<ul>
+<li class="leaf passed"><a href="#" class="fcn  " id="F85N4:L2">find_blockIndex_range</a></li>
+</ul>
+</li>
+</ol>
+<!-- Call Tree Nodes -->
+<div class="callstacknodes hidden">
+<ol class="callstacknode" id="callstacknode1">
+
+<li class="node collapsed passed"><a href="#" class="fcn  " id="F1N5:l1">nn_batch</a>
+<ul>
+<li class="leaf passed"><a href="#" class="fcn  " id="F85N4:l2">find_blockIndex_range</a></li>
+</ul>
+</li>
+</ol>
+<ol class="callstacknode" id="callstacknode85">
+
+<li class="leaf passed"><a href="#" class="fcn  " id="F85N4:l3">find_blockIndex_range</a>
+</li>
+</ol>
+
+</div>
+</div>
+</div>
+<!-- End Call Tree -->
+<!-- Begin C Code -->
+<div id="ccodebody" class="ui-tabs-panel hidden">
+<div class="grayline methodset" onclick="ccodeClick(event,1);">
+<a class="expanded">Target Source Files</a>
+</div>
+<!-- Begin C Code List -->
+<div id="ccodelistbody1" class="visible">
+<table class="myfunc-list" cellspacing="0" cellpadding="0" onclick="cFileClickWithMexWarning(event);">
+<tbody>
+<tr class="ccode" id="c_mexapi_version_c.html"><td class="ccode"><a href="#">c_mexapi_version.c</a></td></tr>
+<tr class="ccode" id="any_c.html"><td class="ccode"><a href="#">any.c</a></td></tr>
+<tr class="ccode" id="any_h.html"><td class="ccode"><a href="#">any.h</a></td></tr>
+<tr class="ccode" id="bsxfun_c.html"><td class="ccode"><a href="#">bsxfun.c</a></td></tr>
+<tr class="ccode" id="bsxfun_h.html"><td class="ccode"><a href="#">bsxfun.h</a></td></tr>
+<tr class="ccode" id="dot_c.html"><td class="ccode"><a href="#">dot.c</a></td></tr>
+<tr class="ccode" id="dot_h.html"><td class="ccode"><a href="#">dot.h</a></td></tr>
+<tr class="ccode" id="eml_int_forloop_overflow_check_c.html"><td class="ccode"><a href="#">eml_int_forloop_overflow_check.c</a></td></tr>
+<tr class="ccode" id="eml_int_forloop_overflow_check_h.html"><td class="ccode"><a href="#">eml_int_forloop_overflow_check.h</a></td></tr>
+<tr class="ccode" id="error_c.html"><td class="ccode"><a href="#">error.c</a></td></tr>
+<tr class="ccode" id="error_h.html"><td class="ccode"><a href="#">error.h</a></td></tr>
+<tr class="ccode" id="find_blockIndex_range_c.html"><td class="ccode"><a href="#">find_blockIndex_range.c</a></td></tr>
+<tr class="ccode" id="find_blockIndex_range_h.html"><td class="ccode"><a href="#">find_blockIndex_range.h</a></td></tr>
+<tr class="ccode" id="nn_batch_c.html"><td class="ccode"><a href="#">nn_batch.c</a></td></tr>
+<tr class="ccode" id="nn_batch_h.html"><td class="ccode"><a href="#">nn_batch.h</a></td></tr>
+<tr class="ccode" id="nn_batch_data_c.html"><td class="ccode"><a href="#">nn_batch_data.c</a></td></tr>
+<tr class="ccode" id="nn_batch_data_h.html"><td class="ccode"><a href="#">nn_batch_data.h</a></td></tr>
+<tr class="ccode" id="nn_batch_emxutil_c.html"><td class="ccode"><a href="#">nn_batch_emxutil.c</a></td></tr>
+<tr class="ccode" id="nn_batch_emxutil_h.html"><td class="ccode"><a href="#">nn_batch_emxutil.h</a></td></tr>
+<tr class="ccode" id="nn_batch_initialize_c.html"><td class="ccode"><a href="#">nn_batch_initialize.c</a></td></tr>
+<tr class="ccode" id="nn_batch_initialize_h.html"><td class="ccode"><a href="#">nn_batch_initialize.h</a></td></tr>
+<tr class="ccode" id="nn_batch_terminate_c.html"><td class="ccode"><a href="#">nn_batch_terminate.c</a></td></tr>
+<tr class="ccode" id="nn_batch_terminate_h.html"><td class="ccode"><a href="#">nn_batch_terminate.h</a></td></tr>
+<tr class="ccode" id="nn_batch_types_h.html"><td class="ccode"><a href="#">nn_batch_types.h</a></td></tr>
+<tr class="ccode" id="rt_nonfinite_h.html"><td class="ccode"><a href="#">rt_nonfinite.h</a></td></tr>
+<tr class="ccode" id="rtwtypes_h.html"><td class="ccode"><a href="#">rtwtypes.h</a></td></tr>
+<tr class="ccode" id="sort1_c.html"><td class="ccode"><a href="#">sort1.c</a></td></tr>
+<tr class="ccode" id="sort1_h.html"><td class="ccode"><a href="#">sort1.h</a></td></tr>
+<tr class="ccode" id="sortIdx_c.html"><td class="ccode"><a href="#">sortIdx.c</a></td></tr>
+<tr class="ccode" id="sortIdx_h.html"><td class="ccode"><a href="#">sortIdx.h</a></td></tr>
+</tbody>
+</table>
+</div>
+<!-- End C Code List -->
+<div class="grayline methodset" onclick="ccodeClick(event,3);">
+<a class="collapsed">Interface Source Files</a>
+</div>
+<!-- Begin C Code List -->
+<div id="ccodelistbody3" class="hidden">
+<table class="myfunc-list" cellspacing="0" cellpadding="0" onclick="cFileClickWithMexWarning(event);">
+<tbody>
+<tr class="ccode" id="_coder_nn_batch_api_c.html"><td class="ccode"><a href="#">_coder_nn_batch_api.c</a></td></tr>
+<tr class="ccode" id="_coder_nn_batch_api_h.html"><td class="ccode"><a href="#">_coder_nn_batch_api.h</a></td></tr>
+<tr class="ccode" id="_coder_nn_batch_info_c.html"><td class="ccode"><a href="#">_coder_nn_batch_info.c</a></td></tr>
+<tr class="ccode" id="_coder_nn_batch_info_h.html"><td class="ccode"><a href="#">_coder_nn_batch_info.h</a></td></tr>
+<tr class="ccode" id="_coder_nn_batch_mex_c.html"><td class="ccode"><a href="#">_coder_nn_batch_mex.c</a></td></tr>
+<tr class="ccode" id="_coder_nn_batch_mex_h.html"><td class="ccode"><a href="#">_coder_nn_batch_mex.h</a></td></tr>
+</tbody>
+</table>
+</div>
+<!-- End C Code List -->
+</div>
+<!-- End C Code -->
+</div>
+<!-- Tooltips -->
+<div class="aux hidden">
+<div class="tooltips">
+<div class="tooltip" id="TT1"><table class="tooltip"><tr><th>Size</th><td><b>:</b>? x <b>:</b>?</td></tr><tr><th>Class</th><td>double</td></tr><tr><th>Complex</th><td>No</td></tr></table></div>
+<div class="tooltip" id="TT2"><table class="tooltip"><tr><th>Size</th><td>1 x 1</td></tr><tr><th>Class</th><td>double</td></tr><tr><th>Complex</th><td>No</td></tr></table></div>
+<div class="tooltip" id="TT3"><table class="tooltip"><tr><th>Size</th><td>1 x 1</td></tr><tr><th>Class</th><td>logical</td></tr></table></div>
+<div class="tooltip" id="TT4"><table class="tooltip"><tr><th>Size</th><td>1 x 2</td></tr><tr><th>Class</th><td>logical</td></tr></table></div>
+<div class="tooltip" id="TT5"><table class="tooltip"><tr><th>Size</th><td>1 x 2</td></tr><tr><th>Class</th><td>double</td></tr><tr><th>Complex</th><td>No</td></tr></table></div>
+<div class="tooltip" id="TT6"><table class="tooltip"><tr><th>Size</th><td>1 x <b>:</b>?</td></tr><tr><th>Class</th><td>double</td></tr><tr><th>Complex</th><td>No</td></tr></table></div>
+<div class="tooltip" id="TT7"><table class="tooltip"><tr><th>Size</th><td><b>:</b>? x 1</td></tr><tr><th>Class</th><td>double</td></tr><tr><th>Complex</th><td>No</td></tr></table></div>
+<div class="tooltip" id="TT8"><table class="tooltip"><tr><th>Size</th><td><b>:</b>? x 1</td></tr><tr><th>Class</th><td>double</td></tr><tr><th>Complex</th><td>No</td></tr></table></div>
+<div class="tooltip" id="TT9"><table class="tooltip"><tr><th>Size</th><td>1 x 5</td></tr><tr><th>Class</th><td>char</td></tr></table></div>
+<div class="tooltip" id="TT10"><table class="tooltip"><tr><th>Size</th><td>1 x 1</td></tr><tr><th>Class</th><td>function_handle</td></tr></table></div>
+<div class="tooltip" id="TT11"><table class="tooltip"><tr><th>Size</th><td>1 x 0</td></tr><tr><th>Class</th><td>cell</td></tr></table></div>
+<div class="tooltip" id="TT12"><table class="tooltip"><tr><th>Size</th><td>0 x 0</td></tr><tr><th>Class</th><td>double</td></tr><tr><th>Complex</th><td>No</td></tr></table></div>
+<div class="tooltip" id="TT13"><table class="tooltip"><tr><th>Size</th><td>1 x 2</td></tr><tr><th>Class</th><td>cell</td></tr></table></div>
+<div class="tooltip" id="TT14"><table class="tooltip"><tr><th>Size</th><td>1 x 7</td></tr><tr><th>Class</th><td>char</td></tr></table></div>
+<div class="tooltip" id="TT15"><table class="tooltip"><tr><th>Size</th><td>1 x 3</td></tr><tr><th>Class</th><td>char</td></tr></table></div>
+<div class="tooltip" id="TT16"><table class="tooltip"><tr><th>Size</th><td>1 x 1</td></tr><tr><th>Class</th><td>cell</td></tr></table></div>
+<div class="tooltip" id="TT17"><table class="tooltip"><tr><th>Size</th><td>1 x 1</td></tr><tr><th>Class</th><td>mxArray</td></tr></table></div>
+<div class="tooltip" id="TT18"><table class="tooltip"><tr><th>Size</th><td>1 x 46</td></tr><tr><th>Class</th><td>char</td></tr></table></div>
+<div class="tooltip" id="TT19"><table class="tooltip"><tr><th>Size</th><td>1 x 23</td></tr><tr><th>Class</th><td>char</td></tr></table></div>
+<div class="tooltip" id="TT20"><table class="tooltip"><tr><th>Size</th><td>1 x 1</td></tr><tr><th>Class</th><td>double</td></tr><tr><th>Complex</th><td>No</td></tr></table></div>
+<div class="tooltip" id="TT21"><table class="tooltip"><tr><th>Size</th><td>1 x 6</td></tr><tr><th>Class</th><td>char</td></tr></table></div>
+<div class="tooltip" id="TT22"><table class="tooltip"><tr><th>Size</th><td>1 x 1</td></tr><tr><th>Class</th><td>int32</td></tr><tr><th>Complex</th><td>No</td></tr></table></div>
+<div class="tooltip" id="TT23"><table class="tooltip"><tr><th>Size</th><td>1 x 1</td></tr><tr><th>Class</th><td>function_handle</td></tr></table></div>
+<div class="tooltip" id="TT24"><table class="tooltip"><tr><th>Size</th><td>1 x 1</td></tr><tr><th>Class</th><td>function_handle</td></tr></table></div>
+<div class="tooltip" id="TT25"><table class="tooltip"><tr><th>Size</th><td>1 x 1</td></tr><tr><th>Class</th><td>uint8</td></tr><tr><th>Complex</th><td>No</td></tr></table></div>
+<div class="tooltip" id="TT26"><table class="tooltip"><tr><th>Size</th><td>1 x 2</td></tr><tr><th>Class</th><td>char</td></tr></table></div>
+<div class="tooltip" id="TT27"><table class="tooltip"><tr><th>Size</th><td>2 x 1</td></tr><tr><th>Class</th><td>double</td></tr><tr><th>Complex</th><td>No</td></tr></table></div>
+<div class="tooltip" id="TT28"><table class="tooltip"><tr><th>Size</th><td>1 x 0</td></tr><tr><th>Class</th><td>double</td></tr><tr><th>Complex</th><td>No</td></tr></table></div>
+<div class="tooltip" id="TT29"><table class="tooltip"><tr><th>Size</th><td>1 x 4</td></tr><tr><th>Class</th><td>char</td></tr></table></div>
+<div class="tooltip" id="TT30"><table class="tooltip"><tr><th>Size</th><td>1 x 1</td></tr><tr><th>Class</th><td>char</td></tr></table></div>
+<div class="tooltip" id="TT31"><table class="tooltip"><tr><th>Size</th><td>1 x 9</td></tr><tr><th>Class</th><td>char</td></tr></table></div>
+<div class="tooltip" id="TT32"><table class="tooltip"><tr><th>Size</th><td>1 x 1</td></tr><tr><th>Class</th><td>coder.opaque</td></tr></table></div>
+<div class="tooltip" id="TT33"><table class="tooltip"><tr><th>Size</th><td>1 x 1</td></tr><tr><th>Class</th><td>double</td></tr><tr><th>Complex</th><td>No</td></tr></table></div>
+<div class="tooltip" id="TT34"><table class="tooltip"><tr><th>Size</th><td>1 x 1</td></tr><tr><th>Class</th><td>unknown</td></tr></table></div>
+<div class="tooltip" id="TT35"><table class="tooltip"><tr><th>Size</th><td>1 x 1</td></tr><tr><th>Class</th><td>function_handle</td></tr></table></div>
+<div class="tooltip" id="TT36"><table class="tooltip"><tr><th>Size</th><td>1 x 3</td></tr><tr><th>Class</th><td>cell</td></tr></table></div>
+<div class="tooltip" id="TT37"><table class="tooltip"><tr><th>Size</th><td>1 x 1</td></tr><tr><th>Class</th><td>function_handle</td></tr></table></div>
+<div class="tooltip" id="TT38"><table class="tooltip"><tr><th>Size</th><td>1 x 2</td></tr><tr><th>Class</th><td>double</td></tr><tr><th>Complex</th><td>No</td></tr></table></div>
+<div class="tooltip" id="TT39"><table class="tooltip"><tr><th>Size</th><td>1 x 1</td></tr><tr><th>Class</th><td>function_handle</td></tr></table></div>
+<div class="tooltip" id="TT40"><table class="tooltip"><tr><th>Size</th><td>1 x 1</td></tr><tr><th>Class</th><td>function_handle</td></tr></table></div>
+<div class="tooltip" id="TT41"><table class="tooltip"><tr><th>Size</th><td>1 x 30</td></tr><tr><th>Class</th><td>char</td></tr></table></div>
+<div class="tooltip" id="TT42"><table class="tooltip"><tr><th>Size</th><td>1 x 1</td></tr><tr><th>Class</th><td>function_handle</td></tr></table></div>
+<div class="tooltip" id="TT43"><table class="tooltip"><tr><th>Size</th><td>4 x 1</td></tr><tr><th>Class</th><td>double</td></tr><tr><th>Complex</th><td>No</td></tr></table></div>
+<div class="tooltip" id="TT44"><table class="tooltip"><tr><th>Size</th><td>1 x 1</td></tr><tr><th>Class</th><td>function_handle</td></tr></table></div>
+<div class="tooltip" id="TT45"><table class="tooltip"><tr><th>Size</th><td>4 x 1</td></tr><tr><th>Class</th><td>double</td></tr><tr><th>Complex</th><td>No</td></tr></table></div>
+<div class="tooltip" id="TT46"><table class="tooltip"><tr><th>Size</th><td>256 x 1</td></tr><tr><th>Class</th><td>double</td></tr><tr><th>Complex</th><td>No</td></tr></table></div>
+<div class="tooltip" id="TT47"><table class="tooltip"><tr><th>Size</th><td>256 x 1</td></tr><tr><th>Class</th><td>double</td></tr><tr><th>Complex</th><td>No</td></tr></table></div>
+<div class="tooltip" id="TT48"><table class="tooltip"><tr><th>Size</th><td><b>:</b>? x <b>:</b>?</td></tr><tr><th>Class</th><td>double</td></tr><tr><th>Complex</th><td>No</td></tr></table></div>
+</div>
+</div>
+<!-- End Tooltips -->
+
+<div class="south">
+<ul class="ui-tabs-nav">
+<li class="ui-tabs-nav-item ui-tabs-selected"><span class="tab-link" id="summary"><span>Summary</span></span></li>
+<li class="ui-tabs-nav-item"><span class="tab-link" id="messages"><span>All Messages (0)</span></span></li>
+<li class="ui-tabs-nav-item"><span class="tab-link" id="watchlist"><span>Variables</span></span></li>
+<li class="ui-tabs-nav-item hidden"><span class="tab-link" id="watchload"><span>Variables</span></span></li>
+<li class="ui-tabs-nav-item"><span class="tab-link" id="buildlog1"><span>Target Build Log</span></span></li>
+</ul>
+
+<!-- Compilation Summary -->
+<div id="summarybody" class="ui-tabs-panel">
+<table cellpadding="1" cellspacing="4">
+<tr><td>C source code generated on:</td><td>16-Sep-2017 17:26:20</td></tr>
+<tr><td>Coding target:</td><td>MEX Function</td></tr>
+<tr><td>Number of errors:</td><td><a href="javascript:selectMessagesTab();">0</a></td></tr>
+<tr><td>Number of warnings:</td><td><a href="javascript:selectMessagesTab();">0</a></td></tr>
+<tr><td>Number of notices:</td><td><a href="javascript:selectMessagesTab();">0</a></td></tr>
+</table>
+<p/><p/><table>
+<tr><td><b>Tell Us What You Think</b></td></tr>
+<tr><td>We value your feedback. Please take a few minutes to answer this short questionnaire regarding the Code Generation Report.</td></tr>
+<tr><td><a href="matlab: emlcprivate('launchReportSurvey');">&gt;&gt;Provide Feedback</a></td></tr>
+</table>
+</div>
+
+<!-- Message Table -->
+<div id="messagesbody" class="ui-tabs-panel hidden">
+<div>
+<div class="msgsuccess">Code generation successful. Click here to <a href="javaScript:selectSummaryTab();">view summary</a>.</div>
+</div>
+</div>
+<!-- Watchlist Table -->
+<div id="watchlistbody" class="ui-tabs-panel hidden">
+</div>
+<div id="watchloadbody" class="ui-tabs-panel hidden">
+Loading Variables table ...
+</div>
+
+<!-- Target Build Log -->
+<div id="buildlog1body" class="ui-tabs-panel hidden">
+<div class="grayline"></div>
+<table cellpadding="4" cellspacing="1"><tr>
+<td align="left" class="td-linebottomrt-gray" colspan="2">Build Parameters</td>
+</tr>
+<tr><td align="left" valign="top" class="td-linebottomrt">Build directory</td>
+<td align="left" valign="top" class="td-linebottomrt-link"><a href="matlab: cd('Z:\matlabscripts\SpikeSorting\Functions\graph_theory\codegen\mex\nn_batch')">Z:\matlabscripts\SpikeSorting\Functions\graph_theory\codegen\mex\nn_batch</a></td></tr>
+<tr><td align="left" valign="top" class="td-linebottomrt">Make wrapper</td>
+<td align="left" valign="top" class="td-linebottomrt-link">nn_batch_mex.bat</td></tr>
+</table>
+<br/>
+<table border="1" cellpadding="4" cellspacing="1" width="100%">
+<tr><td align="left" class="td-linebottomrt-gray">Build Log</td></tr>
+<tr><td valign="top" class="td-script">
+<pre>
+<span class="td-line-number">    1   </span><span class="td-line-normal">gcc -c -fexceptions -fno-omit-frame-pointer -DTARGET_API_VERSION=700   -m64 -DMATLAB_MEX_FILE  -DMATLAB_MEX_FILE   -O -DNDEBUG    -I "C:\MATLAB\R2017a/simulink/include" -I "C:\MATLAB\R2017a/toolbox/shared/simtargets" -I "Z:\MTVKSG~Q\SXJRH0~7\F2M6RN~G\GG8Z3I~D\codegen\mex\nn_batch" -I "Z:\MTVKSG~Q\SXJRH0~7\F2M6RN~G\GG8Z3I~D" -I ".\interface" -I "C:\MATLAB\R2017a\extern\include" -I "." "nn_batch_data.c"</span>
+<span class="td-line-number">    2   </span><span class="td-line-normal">gcc -c -fexceptions -fno-omit-frame-pointer -DTARGET_API_VERSION=700   -m64 -DMATLAB_MEX_FILE  -DMATLAB_MEX_FILE   -O -DNDEBUG    -I "C:\MATLAB\R2017a/simulink/include" -I "C:\MATLAB\R2017a/toolbox/shared/simtargets" -I "Z:\MTVKSG~Q\SXJRH0~7\F2M6RN~G\GG8Z3I~D\codegen\mex\nn_batch" -I "Z:\MTVKSG~Q\SXJRH0~7\F2M6RN~G\GG8Z3I~D" -I ".\interface" -I "C:\MATLAB\R2017a\extern\include" -I "." "nn_batch_initialize.c"</span>
+<span class="td-line-number">    3   </span><span class="td-line-normal">gcc -c -fexceptions -fno-omit-frame-pointer -DTARGET_API_VERSION=700   -m64 -DMATLAB_MEX_FILE  -DMATLAB_MEX_FILE   -O -DNDEBUG    -I "C:\MATLAB\R2017a/simulink/include" -I "C:\MATLAB\R2017a/toolbox/shared/simtargets" -I "Z:\MTVKSG~Q\SXJRH0~7\F2M6RN~G\GG8Z3I~D\codegen\mex\nn_batch" -I "Z:\MTVKSG~Q\SXJRH0~7\F2M6RN~G\GG8Z3I~D" -I ".\interface" -I "C:\MATLAB\R2017a\extern\include" -I "." "nn_batch_terminate.c"</span>
+<span class="td-line-number">    4   </span><span class="td-line-normal">gcc -c -fexceptions -fno-omit-frame-pointer -DTARGET_API_VERSION=700   -m64 -DMATLAB_MEX_FILE  -DMATLAB_MEX_FILE   -O -DNDEBUG    -I "C:\MATLAB\R2017a/simulink/include" -I "C:\MATLAB\R2017a/toolbox/shared/simtargets" -I "Z:\MTVKSG~Q\SXJRH0~7\F2M6RN~G\GG8Z3I~D\codegen\mex\nn_batch" -I "Z:\MTVKSG~Q\SXJRH0~7\F2M6RN~G\GG8Z3I~D" -I ".\interface" -I "C:\MATLAB\R2017a\extern\include" -I "." "nn_batch.c"</span>
+<span class="td-line-number">    5   </span><span class="td-line-normal">gcc -c -fexceptions -fno-omit-frame-pointer -DTARGET_API_VERSION=700   -m64 -DMATLAB_MEX_FILE  -DMATLAB_MEX_FILE   -O -DNDEBUG    -I "C:\MATLAB\R2017a/simulink/include" -I "C:\MATLAB\R2017a/toolbox/shared/simtargets" -I "Z:\MTVKSG~Q\SXJRH0~7\F2M6RN~G\GG8Z3I~D\codegen\mex\nn_batch" -I "Z:\MTVKSG~Q\SXJRH0~7\F2M6RN~G\GG8Z3I~D" -I ".\interface" -I "C:\MATLAB\R2017a\extern\include" -I "." "any.c"</span>
+<span class="td-line-number">    6   </span><span class="td-line-normal">gcc -c -fexceptions -fno-omit-frame-pointer -DTARGET_API_VERSION=700   -m64 -DMATLAB_MEX_FILE  -DMATLAB_MEX_FILE   -O -DNDEBUG    -I "C:\MATLAB\R2017a/simulink/include" -I "C:\MATLAB\R2017a/toolbox/shared/simtargets" -I "Z:\MTVKSG~Q\SXJRH0~7\F2M6RN~G\GG8Z3I~D\codegen\mex\nn_batch" -I "Z:\MTVKSG~Q\SXJRH0~7\F2M6RN~G\GG8Z3I~D" -I ".\interface" -I "C:\MATLAB\R2017a\extern\include" -I "." "error.c"</span>
+<span class="td-line-number">    7   </span><span class="td-line-normal">gcc -c -fexceptions -fno-omit-frame-pointer -DTARGET_API_VERSION=700   -m64 -DMATLAB_MEX_FILE  -DMATLAB_MEX_FILE   -O -DNDEBUG    -I "C:\MATLAB\R2017a/simulink/include" -I "C:\MATLAB\R2017a/toolbox/shared/simtargets" -I "Z:\MTVKSG~Q\SXJRH0~7\F2M6RN~G\GG8Z3I~D\codegen\mex\nn_batch" -I "Z:\MTVKSG~Q\SXJRH0~7\F2M6RN~G\GG8Z3I~D" -I ".\interface" -I "C:\MATLAB\R2017a\extern\include" -I "." "find_blockIndex_range.c"</span>
+<span class="td-line-number">    8   </span><span class="td-line-normal">gcc -c -fexceptions -fno-omit-frame-pointer -DTARGET_API_VERSION=700   -m64 -DMATLAB_MEX_FILE  -DMATLAB_MEX_FILE   -O -DNDEBUG    -I "C:\MATLAB\R2017a/simulink/include" -I "C:\MATLAB\R2017a/toolbox/shared/simtargets" -I "Z:\MTVKSG~Q\SXJRH0~7\F2M6RN~G\GG8Z3I~D\codegen\mex\nn_batch" -I "Z:\MTVKSG~Q\SXJRH0~7\F2M6RN~G\GG8Z3I~D" -I ".\interface" -I "C:\MATLAB\R2017a\extern\include" -I "." "eml_int_forloop_overflow_check.c"</span>
+<span class="td-line-number">    9   </span><span class="td-line-normal">gcc -c -fexceptions -fno-omit-frame-pointer -DTARGET_API_VERSION=700   -m64 -DMATLAB_MEX_FILE  -DMATLAB_MEX_FILE   -O -DNDEBUG    -I "C:\MATLAB\R2017a/simulink/include" -I "C:\MATLAB\R2017a/toolbox/shared/simtargets" -I "Z:\MTVKSG~Q\SXJRH0~7\F2M6RN~G\GG8Z3I~D\codegen\mex\nn_batch" -I "Z:\MTVKSG~Q\SXJRH0~7\F2M6RN~G\GG8Z3I~D" -I ".\interface" -I "C:\MATLAB\R2017a\extern\include" -I "." "dot.c"</span>
+<span class="td-line-number">   10   </span><span class="td-line-normal">gcc -c -fexceptions -fno-omit-frame-pointer -DTARGET_API_VERSION=700   -m64 -DMATLAB_MEX_FILE  -DMATLAB_MEX_FILE   -O -DNDEBUG    -I "C:\MATLAB\R2017a/simulink/include" -I "C:\MATLAB\R2017a/toolbox/shared/simtargets" -I "Z:\MTVKSG~Q\SXJRH0~7\F2M6RN~G\GG8Z3I~D\codegen\mex\nn_batch" -I "Z:\MTVKSG~Q\SXJRH0~7\F2M6RN~G\GG8Z3I~D" -I ".\interface" -I "C:\MATLAB\R2017a\extern\include" -I "." "bsxfun.c"</span>
+<span class="td-line-number">   11   </span><span class="td-line-normal">gcc -c -fexceptions -fno-omit-frame-pointer -DTARGET_API_VERSION=700   -m64 -DMATLAB_MEX_FILE  -DMATLAB_MEX_FILE   -O -DNDEBUG    -I "C:\MATLAB\R2017a/simulink/include" -I "C:\MATLAB\R2017a/toolbox/shared/simtargets" -I "Z:\MTVKSG~Q\SXJRH0~7\F2M6RN~G\GG8Z3I~D\codegen\mex\nn_batch" -I "Z:\MTVKSG~Q\SXJRH0~7\F2M6RN~G\GG8Z3I~D" -I ".\interface" -I "C:\MATLAB\R2017a\extern\include" -I "." "sort1.c"</span>
+<span class="td-line-number">   12   </span><span class="td-line-normal">gcc -c -fexceptions -fno-omit-frame-pointer -DTARGET_API_VERSION=700   -m64 -DMATLAB_MEX_FILE  -DMATLAB_MEX_FILE   -O -DNDEBUG    -I "C:\MATLAB\R2017a/simulink/include" -I "C:\MATLAB\R2017a/toolbox/shared/simtargets" -I "Z:\MTVKSG~Q\SXJRH0~7\F2M6RN~G\GG8Z3I~D\codegen\mex\nn_batch" -I "Z:\MTVKSG~Q\SXJRH0~7\F2M6RN~G\GG8Z3I~D" -I ".\interface" -I "C:\MATLAB\R2017a\extern\include" -I "." "sortIdx.c"</span>
+<span class="td-line-number">   13   </span><span class="td-line-normal">gcc -c -fexceptions -fno-omit-frame-pointer -DTARGET_API_VERSION=700   -m64 -DMATLAB_MEX_FILE  -DMATLAB_MEX_FILE   -O -DNDEBUG    -I "C:\MATLAB\R2017a/simulink/include" -I "C:\MATLAB\R2017a/toolbox/shared/simtargets" -I "Z:\MTVKSG~Q\SXJRH0~7\F2M6RN~G\GG8Z3I~D\codegen\mex\nn_batch" -I "Z:\MTVKSG~Q\SXJRH0~7\F2M6RN~G\GG8Z3I~D" -I ".\interface" -I "C:\MATLAB\R2017a\extern\include" -I "." "interface/_coder_nn_batch_info.c"</span>
+<span class="td-line-number">   14   </span><span class="td-line-normal">gcc -c -fexceptions -fno-omit-frame-pointer -DTARGET_API_VERSION=700   -m64 -DMATLAB_MEX_FILE  -DMATLAB_MEX_FILE   -O -DNDEBUG    -I "C:\MATLAB\R2017a/simulink/include" -I "C:\MATLAB\R2017a/toolbox/shared/simtargets" -I "Z:\MTVKSG~Q\SXJRH0~7\F2M6RN~G\GG8Z3I~D\codegen\mex\nn_batch" -I "Z:\MTVKSG~Q\SXJRH0~7\F2M6RN~G\GG8Z3I~D" -I ".\interface" -I "C:\MATLAB\R2017a\extern\include" -I "." "interface/_coder_nn_batch_api.c"</span>
+<span class="td-line-number">   15   </span><span class="td-line-normal">gcc -c -fexceptions -fno-omit-frame-pointer -DTARGET_API_VERSION=700   -m64 -DMATLAB_MEX_FILE  -DMATLAB_MEX_FILE   -O -DNDEBUG    -I "C:\MATLAB\R2017a/simulink/include" -I "C:\MATLAB\R2017a/toolbox/shared/simtargets" -I "Z:\MTVKSG~Q\SXJRH0~7\F2M6RN~G\GG8Z3I~D\codegen\mex\nn_batch" -I "Z:\MTVKSG~Q\SXJRH0~7\F2M6RN~G\GG8Z3I~D" -I ".\interface" -I "C:\MATLAB\R2017a\extern\include" -I "." "interface/_coder_nn_batch_mex.c"</span>
+<span class="td-line-number">   16   </span><span class="td-line-normal">gcc -c -fexceptions -fno-omit-frame-pointer -DTARGET_API_VERSION=700   -m64 -DMATLAB_MEX_FILE  -DMATLAB_MEX_FILE   -O -DNDEBUG    -I "C:\MATLAB\R2017a/simulink/include" -I "C:\MATLAB\R2017a/toolbox/shared/simtargets" -I "Z:\MTVKSG~Q\SXJRH0~7\F2M6RN~G\GG8Z3I~D\codegen\mex\nn_batch" -I "Z:\MTVKSG~Q\SXJRH0~7\F2M6RN~G\GG8Z3I~D" -I ".\interface" -I "C:\MATLAB\R2017a\extern\include" -I "." "nn_batch_emxutil.c"</span>
+<span class="td-line-number">   17   </span><span class="td-line-normal">gcc -c -fexceptions -fno-omit-frame-pointer -DTARGET_API_VERSION=700   -m64 -DMATLAB_MEX_FILE  -DMATLAB_MEX_FILE   -O -DNDEBUG    -I "C:\MATLAB\R2017a/simulink/include" -I "C:\MATLAB\R2017a/toolbox/shared/simtargets" -I "Z:\MTVKSG~Q\SXJRH0~7\F2M6RN~G\GG8Z3I~D\codegen\mex\nn_batch" -I "Z:\MTVKSG~Q\SXJRH0~7\F2M6RN~G\GG8Z3I~D" -I ".\interface" -I "C:\MATLAB\R2017a\extern\include" -I "." "C:\MATLAB\R2017a\extern\version/c_mexapi_version.c"</span>
+<span class="td-line-number">   18   </span><span class="td-line-normal">C:\ProgramData\MATLAB\SupportPackages\R2017a\3P.instrset\mingw_492.instrset\bin\gcc -Wl,--version-script,nn_batch_mex_mex.map nn_batch_data.o nn_batch_initialize.o nn_batch_terminate.o nn_batch.o any.o error.o find_blockIndex_range.o eml_int_forloop_overflow_check.o dot.o bsxfun.o sort1.o sortIdx.o _coder_nn_batch_info.o _coder_nn_batch_api.o _coder_nn_batch_mex.o nn_batch_emxutil.o c_mexapi_version.o -m64 -Wl,--no-undefined -shared -L"C:\MATLAB\R2017a\extern\lib\win64\mingw64" -llibmx -llibmex -llibmat -lm -llibmwlapack -llibmwblas     -o nn_batch_mex.mexw64 -L"C:\MATLAB\R2017a\extern\lib\win64\mingw64" -llibmwblas   -llibemlrt -llibcovrt -llibut -llibmwmathutil </span>
+<span class="td-line-number">   19   </span><span class="td-line-normal">Build completed using compiler mingw64</span>
+</pre>
+</td></tr></table>
+
+</div>
+
+<!-- Potential Differences -->
+<div id="potentialDifferencesBody" class="ui-tabs-panel hidden">
+</div>
+
+</div>
+<!-- Begin MATLAB Code Panel -->
+<div class="center">
+<div class="center-title">
+<div class="ui-tabs-nav-item ui-tabs-selected">
+<span class="functiontitle">
+</span>
+<!-- Begin Call Sites -->
+<span id="callsiteselecttable" class="call-sites-tbl">
+<span id="callsiteselectlabel" class="filtered">Calls:</span>
+<select id="callsiteselect" onchange="callSiteChange(event)">
+<option value="callsiteprompt">Select a function call:</option>
+</select>
+</span>
+<!-- End Call Sites -->
+</div>
+</div>
+<div class="ui-tabs-panel">
+<iframe id="hiddenCodeFrame"></iframe>
+<div class="code" onmouseover="mcodeMouseOver(event);" onmouseout="mcodeMouseOut(event);"onclick="mcodeClick(event);">
+</div>
+</div>
+</div>
+<!-- End MATLAB Code Panel -->
+</body>
+</html>

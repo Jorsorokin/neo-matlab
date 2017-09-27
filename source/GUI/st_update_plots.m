@@ -20,9 +20,9 @@ function st_update_plots( handles )
         children(mainPlot).CData = handles.plotcolor;
     end
 
-    % raw waveform plot (if visible / initiated)
-    if ~isa( handles.waveformplot,'double' )   
-        if isvalid( handles.waveformplot ) && strcmp( handles.waveformplot.Parent.Visible,'on' )
+    % raw waveform plot (if visible / initiated)\
+    if ~isa( handles.waveformplot(1),'double' )   
+        if isvalid( handles.waveformplot(1) ) && strcmp( handles.waveformplot(1).Parent.Visible,'on' )
             st_plot_waveforms( handles );
         end
     end

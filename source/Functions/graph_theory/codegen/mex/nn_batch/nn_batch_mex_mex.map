@@ -1,0 +1,19 @@
+MEX {
+	global:
+		mexFunction;
+		mexfilerequiredapiversion;
+		emlrtMexFcnProperties;
+		nn_batch;
+		emxEnsureCapacity;
+		emxFree_int32_T;
+		emxFree_real_T;
+		emxInit_int32_T;
+		emxInit_int32_T1;
+		emxInit_real_T;
+		emxInit_real_T1;
+		nn_batch_initialize;
+		nn_batch_terminate;
+		nn_batch_atexit;
+	local:
+		*;
+};

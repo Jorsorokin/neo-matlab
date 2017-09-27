@@ -89,9 +89,8 @@ classdef Block < Container
             fprintf('----------------------------------------------\n');
             fprintf( '%s (%s)\nRecorded on %s\n\n',...
                 self.filename,self.condition,self.date );
-            fprintf( '%i electrodes; %i signals; %i channel groups; %i epochs\n',...
-                self.nElectrodes, self.nSignals, self.nChanInds, self.nEpochs );
-            fprintf( '%i identified units\n', self.nUnits );
+            fprintf( '%i electrodes\n%i signals\n%i channel groups\n%i epochs\n%i units\n',...
+                self.nElectrodes, self.nSignals, self.nChanInds, self.nEpochs,self.nUnits );
             fprintf('----------------------------------------------\n');
         end
         
@@ -110,13 +109,17 @@ classdef Block < Container
 
             % check for validity & update: ChannelIndex
             % =========================================
-            if ~isempty( chanind )                
+            if ~isempty( chanind )     
+                self.nElectrodes = 0;
                 chanind(~isvalid( chanind )) = [];
                 for j = 1:numel( chanind )
-                    [electrodeID,electrodeIND] = [chanind(j).getChild( 'Electrode' )];
-                    chanind(j).nElectrodes = numel( electrodeID );
-                    chanind(j).chanIDs = electrodeID; % the actual electrode IDs 
-                    chanind(j).channels = electrodeIND; % their location in the Block parent
+                    chanElectrodes = chanind(j).getChild( 'Electrode' );
+                    if ~isempty( chanElectrodes )
+                        electrodeID = [chanElectrodes.electrodeNum];
+                        chanind(j).nElectrodes = numel( electrodeID );
+                        chanind(j).chanIDs = electrodeID; % the actual electrode IDs 
+                    end
+                    self.nElectrodes = self.nElectrodes + numel( chanElectrodes );
                 end
             end
             self.nChanInds = numel( chanind );
@@ -129,7 +132,14 @@ classdef Block < Container
                 electrode(~isvalid( electrode )) = [];
                 for j = 1:numel( electrode )
                     nSig = nSig + electrode(j).nSignals;
-                    electrode(j).chanInd = [electrode(j).getParent( 'ChannelIndex' ).chanIndNum]; % all parent ChannelIndex 
+                    chanind = electrode(j).getParent( 'ChannelIndex' );
+                    if ~isempty( chanind )
+                        electrode(j).chanInd = [electrode(j).getParent( 'ChannelIndex' ).chanIndNum]; % all parent ChannelIndex 
+                        electrode(j).nChanInd = numel( chanind );
+                    else
+                        electrode(j).chanInd = [];
+                        electrode(j).nChanInd = 0;
+                    end
                     for sig = 1:electrode(j).nSignals
                         signal = electrode(j).getChild( 'Signal',sig );
 
@@ -137,8 +147,8 @@ classdef Block < Container
                         if ~isempty( signal )
                             if ~isvalid( signal )
                                 electrode(j).removeChild( 'Signal',sig );
-                                clear signal;
-                                continue;
+                                clear signal; % removes this invalid signal object
+                                continue
                             end
                             signal.epoch = signal.getParent( 'Epoch' ).epochNum;
                             signal.chanInd = electrode(j).chanInd; % the parent ChannelIndex
@@ -170,9 +180,10 @@ classdef Block < Container
                         spikes(~isvalid( spikes )) = [];
                         for sp = 1:numel( spikes )
                             if isempty( spikes(sp).getParent( 'Neuron' ) )
-                                spikes(sp).deleteSelf();
+                                spikes(sp).deleteSelf(); 
                             end
                         end
+                        spikes(~isvalid( spikes )) = [];
                     end
                 end
             end
@@ -181,6 +192,7 @@ classdef Block < Container
 
             % check validity & update: Neuron
             % ==============================
+            self.nUnits = 0;
             if ~isempty( neurons )
                 neurons(~isvalid( neurons )) = [];
                 for j = 1:numel( neurons )
@@ -188,11 +200,11 @@ classdef Block < Container
                         neurons(j).deleteSelf();
                     end
                 end
-                self.nUnits = numel( [neurons.ID] );
-                if numel( self.nUnits ) > 0
+                neurons(~isvalid( neurons )) = [];
+                self.nUnits = numel( neurons );
+                if self.nUnits > 0
                     for n = 1:self.nUnits
-                        spikes = neurons(n).getChild( 'Spikes' );
-                        neurons(n).nSpikes = sum( [spikes.nSpikes] );
+                        neurons(n).nSpikes = sum( [neurons(n).getChild( 'Spikes' ).nSpikes] );
                     end
                 end  
             end
@@ -215,7 +227,7 @@ classdef Block < Container
             
             self.update(); % update the num channels/epochs/units
             eval( ['block' '=self'] ); % makes variable "block" reference "self"
-            save( [outpath,filesep,self.filename,'_extractedData.mat'],'block' );
+            save( [outpath,filesep,self.filename,'_extractedData.mat'],'block','-v7.3' );
         end
         
         

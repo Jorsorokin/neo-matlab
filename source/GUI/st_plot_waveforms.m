@@ -6,22 +6,26 @@ function st_plot_waveforms( handles )
     % belonging to the sortTool GUI
     
     % check if any data exists
-    if isnan( handles.data )
+    if ~handles.availableData
         disp( 'No data available' );
-        return;
+        return
     end
     
-    % get IDs of the labels, then loop and plot color coded waveforms
-    cla( handles.waveformplot );
-    handles.waveformplot.Parent.Visible = 'on';
+    %handles.waveformplot(1).Parent.Visible = 'on';
     pts = handles.selectedPoints; % only plots selected (highlighted) points
     numNans = 1;
     if ~any( pts )
         return;
     end
+    
+    % clear previous plot
+    for c = 1:numel( handles.waveformplot )
+        cla( handles.waveformplot(c) );
+    end
+    
     uID = unique( handles.labels(pts) );
     for i = uID
-        idx = handles.labels == i & pts;
+        idx = handles.labels == i & pts; 
         nSp = sum( idx );
         nPt = size( handles.data,1 );
         totalPts = nPt*nSp + nSp*numNans; % extra points for nans
@@ -29,10 +33,13 @@ function st_plot_waveforms( handles )
         % add nans between each spike waveform (make one big line)
         % this helps reduce overhead of having MANY "line" objects
         time = repmat( [1:nPt,nan( 1,numNans )],1,nSp );
-        bigline = reshape( [handles.data(:,idx);nan( numNans,nSp )],...   
-            totalPts,1 ); 
-        plot( handles.waveformplot,time,bigline,...
-            'color',handles.allPlotColor(i+1,:),...
-            'linewidth',0.5 );
+
+        % loop over channels
+        for c = 1:numel( handles.waveformplot )
+            bigline = reshape( [handles.data(:,idx,c);nan( numNans,nSp )],totalPts,1 ); 
+            line( handles.waveformplot(c),time,bigline,...
+                'color',handles.allPlotColor(i+1,:),...
+                'linewidth',0.5 );
+        end
     end
 end
