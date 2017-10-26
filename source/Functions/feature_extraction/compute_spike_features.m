@@ -50,7 +50,6 @@ if nargin > 3 && ~isempty( varargin{3} )
 end
 if nargin > 4 && ~isempty( varargin{4} ) && all( ~isnan( varargin{4}(:) ) )
     distances = varargin{4} + 1; % added 1 to avoid any distance == 0, which will affect spike-distance mapping
-    p = size( distances,2 );
 end
 if nargin > 5 && ~isempty( varargin{5} )
     concatenate = varargin{5};
@@ -63,9 +62,7 @@ mapping = nan;
 
 % mask the channels according to the mask matrix
 if exist( 'mask','var' ) && concatenate
-   for ch = 1:c
-       X(:,:,ch) = bsxfun( @times,X(:,:,ch),mask(ch,:)' ); % weights each ith spike in each jth channel by the mask value (i,j)
-   end
+    X = maskchans( X,mask );
 end
 
 % compute regularized covariance matrix 
@@ -83,6 +80,8 @@ if exist( 'distances','var' )
     else
         E_spikeXY = get_spike_XY( X,distances );
     end
+else
+    E_spikeXY = [];
 end
         
 % PROJECTIONS
@@ -155,12 +154,11 @@ else
             features(:,thisind) = X(:,:,ch) * W(:,:,ch);
         end
     end
+    
 end
 
 % add distances
-if exist( 'distances','var' )
-    features(:,end+p) = E_spikeXY;
-end
+features = [features,E_spikeXY];
 
 % normalize the features
 features = zscore( features );

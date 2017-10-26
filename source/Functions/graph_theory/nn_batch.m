@@ -15,8 +15,7 @@ for i = 1:numel( start )
     
     % euclidean distance
     pts = X(start(i):stop(i),:);
-    S = sqrt( abs( bsxfun( @plus,dot( pts,Y,2 ),...
-                            bsxfun( @minus,dot( pts,Y,2 ),2*(pts*Y') ) ) ) ); 
+    S = compute_pairwise_dist( pts,Y );
     
     % nearest neighbors
     [S(:),idx] = sort( S,'ascend' ); % sorts smallest - largest columns for each row

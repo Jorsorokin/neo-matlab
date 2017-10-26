@@ -24,10 +24,11 @@ function st_plot_waveforms( handles )
     end
     
     uID = unique( handles.labels(pts) );
+    [nPt,~,nChan] = size( handles.data );
+    
     for i = uID
-        idx = handles.labels == i & pts; 
+        idx = (handles.labels == i) & pts; 
         nSp = sum( idx );
-        nPt = size( handles.data,1 );
         totalPts = nPt*nSp + nSp*numNans; % extra points for nans
 
         % add nans between each spike waveform (make one big line)
@@ -35,7 +36,7 @@ function st_plot_waveforms( handles )
         time = repmat( [1:nPt,nan( 1,numNans )],1,nSp );
 
         % loop over channels
-        for c = 1:numel( handles.waveformplot )
+        for c = 1:nChan
             bigline = reshape( [handles.data(:,idx,c);nan( numNans,nSp )],totalPts,1 ); 
             line( handles.waveformplot(c),time,bigline,...
                 'color',handles.allPlotColor(i+1,:),...

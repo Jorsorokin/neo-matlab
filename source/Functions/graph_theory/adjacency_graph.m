@@ -87,7 +87,7 @@ end
 % get the affinity matrix
 if nargout > 1
     if (weight==true) && (sigma > 0)
-        gaussFunc = @(X,sigma)(exp( -X.^2 ./ (2*sigma^2) )); % RBF kernel
+        gaussFunc = @(X,sigma)(real( exp( -X.^2 ./ (2*sigma^2) ) ) ); % RBF kernel
         A = spfun( @(D)gaussFunc( D,sigma ),D );
     else
         A = spfun( @(D)gt( D,0 ),D );

@@ -12,12 +12,7 @@ function st_update_plots( handles )
     % update the main projection plot
     children = handles.mapplot.Children;
     if ~isempty( children ) % i.e. if any projection is there
-        if numel( children ) > 1 && ~isa( handles.selectedPointPlot,'double' )
-            mainPlot = ~ismember( children,handles.selectedPointPlot );
-        else
-            mainPlot = 1;
-        end
-        children(mainPlot).CData = handles.plotcolor;
+        children.CData = handles.plotcolor;
     end
 
     % raw waveform plot (if visible / initiated)\

@@ -1,8 +1,7 @@
-function ax = st_create_isiplot( handles )
-    % ax = st_create_isiplot( handles )
+function ax = st_create_isiplot()
+    % ax = st_create_isiplot()
     % creates an instance of the "isiplot" used by the "sortTool" GUI
-    %
-    % handles is a structure with variables referenced by the main GUI
+
     figure( 'Visible','off','color','k','position',[4,202,329,237] );
     set( gcf,'Name','Inter-spike intervals (ISI)' );
     ax = subplot( 1,1,1 ); hold on;

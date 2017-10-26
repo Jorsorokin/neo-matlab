@@ -1,35 +1,64 @@
 function [labels,model] = sort_clusters( X,K,method,varargin )
-% function [labels,model] = sort_clusters( X,K,method,(mask) )
+% function [labels,model] = sort_clusters( X,K,method,varargin )
 %
-% sort the projected data "X" using the specified clustering method and the
-% number of clusters "K". Options for "method" include: EM-GMM, EM-TMM,
-% Km, VB, DBSCAN, Spectral, and Agglomerative
+% sort the projected data "X" using the specified clustering method
+% 
+% Inputs:
+%   X - n x d matrix, n = observations, d = dimensions
+%
+%   K - scalar (# of clusters)
+%
+%   method - the sorting method:
+%       'EM-GMM'    <- expectation maximization guassian mixture modeling
+%       'mEM-GMM'   <- masked EM-GMM
+%       'EM-TMM'    <- EM t-distribution mixture modeling
+%       'Km'        <- K-means
+%       'VB'        <- variational bayes GMM
+%       'mVB'       <- masked VB
+%       'DBSCAN'    <- density based spatial clustering
+%       'HDBSCAN'   <- hierarchical density based spatial clustering
+%       'Spectral'  <- spectral clustering
+%
+%   (mask) - the c x n mask matrix, necessary for 'mEM-GMM' and 'mVB'
+%
+%   (sigma) - SD parameter for gaussian rbf kernel 
+%             (default = 1)
+%
+%   (eps) - the epsilon ([0:1]) neighborhood radius (for DBSCAN or Spectral)
+%           (default = 0.1)
+%
+%   (neighbors) - the # of neighbors for Spectral Clustering or 
+%                 the k-nearest neighbor (minpts) for DBSCAN / HDBSCAN 
+%                 (default = 5)
+%
+%   (minclustsize) - the minimum # of points in a cluster for the cluster to be kept
+%                    (default = 5)
+%
+%   (neighborType) - type of neighborhood for spectral clustering
+%                       'kNN'
+%                       'mkNN'
+%                       'eps'
+%                   (default = 'kNN')
+%
+%   (kernelWeighting) - boolean flag for weighting affinity matrix by
+%                       guassian RBF or leaving unweighted (euclidean)
+%
+%   (outlierthresh) - value between [0,1] for determining if a point is an
+%                     outlier in the clustering scheme (for HDBSCAN)
+%                     (default = 0.9)
+%
+%   * All optional arguments supplied in name-value pairs
 %
 % can optionally provide a mask matrix (requred for "mEM-GMM" and "mVB")
 
 % check data size
-if size( X,1 ) < K
-    disp( 'Fewer data points than requested number of clusters' );
-    labels = nan;
-    return
+n = size( X,1 );
+if n < K
+    error( 'Fewer data points than requested number of clusters' );
 end
 
-% get mask if it exists
-if nargin > 3 && ~isempty( varargin{1} )
-    mask = varargin{1};
-end
-
-% TEMP
-model = nan;
-labels = nan;
-
-if ~strcmp( method,'DBSCAN' ) && isempty( K )
-    K = inputdlg( 'Number of clusters' );
-    K = str2double( cell2mat( K ) );
-    if isempty( K )
-        return;
-    end
-end
+% get optional arguments
+p = parse_inputs( varargin );
 
 % cluster via different methods
 fprintf( 'Clustering via %s...\n',method );
@@ -38,42 +67,105 @@ switch method
         labels = mixGaussEm( X',K );
     
     case 'mEM-GMM'   
-        labels = maskedEM_GMM( X,mask,K,0 ); % no search
+        if any( isnan( p.mask ) )
+            error( 'must supply mask matrix for maskedEM-GMM' );
+        end
+        labels = maskedEM_GMM( X,p.mask,K,0 ); % no search
         
     case 'EM-TMM'
         fprintf( 'EM-TMM currently under development\n. Try a different sorting routine\n' );
         labels = nan;
         
     case 'Km'
-        % create random centers
         labels = kmeans( X,K );
         
     case 'VB'
         labels = mixGaussVb( X',K );
     
     case 'mVB'
+        if any( isnan( p.mask ) )
+            error( 'must supply mask matrix for maskedEM-GMM' );
+        end
         virtualX = compute_noise_ensemble( X,mask );
         labels = mixGaussVb( virtualX.y',K ); % uses the virtual distribution of X for clustering
     
     case 'DBSCAN'
-        eps = str2double( cell2mat( inputdlg( 'Radius of neighborhood [0:1]:' ) ) );
-        labels = DBSCAN( X,eps,10 );
+        labels = DBSCAN( X,p.eps,p.neighbors );
+        
+    case 'HDBSCAN'
+        hdbscan = HDBSCAN( X ); % creates an instance of the HDBSCAN cluster object
+        hdbscan.run_hdbscan( p.neighbors,p.minclustsize,2,p.outlierThresh,false );
+
+        % output model
+        model = hdbscan.model;
+        labels = hdbscan.labels;
         
     case 'Spectral'
-        neighbors = inputdlg( 'Number of neighbors?' );
-        neighbors = str2double( cell2mat( neighbors ) );
-        if isempty( K ) || isempty( neighbors )
-            labels = nan;
-            return
+        W = adjacency_graph( X,p.neighborType,p.neighbors,p.kernelWeighting,p.sigma );
+        %[labels,alpha] = wMSC( W,p.sigma,K ); 
+        if p.kernelWeighting
+            labels = SpectralClustering( W,K,2 );
+        else
+            labels = SpectralClustering( W,K,1 ); % no weighting
         end
-        [~,A] = adjacency_matrix( X,'kNN',neighbors );
-        labels = SpectralClustering( A,K,2 );
 end
 
 % make into correct format
-labels = uint8( labels );
+labels = int8( labels );
 if ~isrow( labels )
     labels = labels';
+end
+
+% remove labels (set to 0) with # pts < minclustsize
+trueClusts = labels > 0;
+nPts = sum( bsxfun( @minus,labels(trueClusts),repmat( unique( labels(trueClusts) )',1,nnz(trueClusts) ) )==0,2 );
+smallClusters = find( nPts < p.minclustsize );
+labels(ismember( labels,smallClusters )) = 0;
+
+% get the sorting model
+if nargout > 1
+    switch method
+        case {'EM-GMM','Km','VB'}
+            model = get_sorting_model( X,labels,method );
+
+        case 'DBSCAN'
+            model = nan;
+            
+        case 'Spectral'
+            model = nan;
+%             model.W = W; % adjacency graph
+%             model.D = sum( W,2 ); % degree vector
+%             model.alpha = alpha; % eigen-decomp of the centered rotation: inv(D)*W
+%             model.neighborType = p.neighborType; % type of neighborhood
+%             model.nNeighbors = p.neighbors; % # neighbors
+%             model.sigma = p.sigma;
+%             model.K = K; % # of clusters
+    end
+end
+
+%% Parser
+function p = parse_inputs( inputs )
+    names = {'mask','sigma','eps','neighbors','neighborType',...
+        'minclustsize','kernelWeighting','outlierThresh'};
+    defaults = {nan,1,0.1,15,'kNN',5,0,0.9};
+
+    p = inputParser;
+    for j = 1:numel( names )
+        p.addParameter( names{j},defaults{j} );
+    end
+
+    parse( p,inputs{:} );
+    p = p.Results;
+    
+    % check for nans
+    if isnan( p.eps )
+        p.eps = 0.1;
+    end
+    
+    if isnan( p.sigma )
+        p.sigma = 1;
+    end
+    
 end
 
 end

@@ -55,7 +55,7 @@ classdef Signal < Container
         end
 
 
-        function addChild( self,child )
+        function addChild( ~,~ )
             disp( 'Signal objects have no children' );
         end 
 
@@ -110,10 +110,12 @@ classdef Signal < Container
                 uniqueChanInd = unique( chanind );
                 cmap = colormap( jet(numel( uniqueID )) ); % color signifies neuron ID
                 markers = {'.','x','o','^','s'}; % marker type signifies channelindex
+                volt = self.voltage;
                 for id = uniqueID
                     for ch = 1:numel( uniqueChanInd )
                         spikes = times( ismember( neuronID,id) & ismember( chanind,uniqueChanInd(ch) ) );
-                        scatter( spikes + start,self.voltage(round( spikes*self.fs )),80,markers{ch} );
+                        scatter( spikes + start,volt(round( spikes*self.fs )),...
+                            80,markers{ch},'color',cmap(id,:) );
                     end
                 end
             end
@@ -150,7 +152,7 @@ classdef Signal < Container
             %
             % estimates the noise of each signal in self.voltage as:
             %   median( abs( voltage ) / 0.6745 )
-            noiseLevel = median( abs( self.voltage ) / 0.6745 );
+            noiseLevel = median( abs( self.voltage ) ) / 0.6745;
         end
 
     end % methods

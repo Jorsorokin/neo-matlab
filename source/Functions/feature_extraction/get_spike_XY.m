@@ -18,12 +18,19 @@ end
 % the minimum across channels to interpolate between [0,1]
 amp = squeeze( min( X,[],2 ) );
 [chanAmp,bestChan] = min( amp,[],2 );
-amp = gather( bsxfun( @rdivide,amp,chanAmp ) ); % provides a smoother interpolation compared to the original masking 
+%amp = gather( bsxfun( @rdivide,amp,chanAmp ) ); % provides a smoother interpolation compared to the original masking 
 if exist( 'mask','var' ) 
     % take the E[(X,Y)_spike_i] - the expecation of the (x,y) location of the ith spike
     % by weighting the channel distances by the mask values for each
     % channel and dividing by the number of channels with mask > 0
-    E_spikeXY = bsxfun( @rdivide,chanLoc' * (amp' .* mask>0),sum( mask>0 ) )' - 1; 
+    
+    
+    % JS, 10/18/2017
+    % Removed the "smooth interpolation" by the amplitudes to reduce
+    % infinitely dense regions in the projection space and spread apart 
+    % spurious activity off of the main spike 
+    %E_spikeXY = bsxfun( @rdivide,chanLoc' * (amp' .* mask>0),sum( mask>0 ) )' - 1; 
+    E_spikeXY = (chanLoc' * mask)'; % <-- new code
 else
     % if no mask, take the expectation by simply using the channel with
     % the largest voltage deflection

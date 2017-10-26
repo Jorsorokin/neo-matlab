@@ -111,40 +111,46 @@ classdef Spikes < Container
             
             cols = ceil( sqrt( nchan ) );
             rows = ceil( nchan / cols );
-            time = (0:size( self.voltage,1 )-1) / self.fs * 1000;
+            nPt = size( self.voltage,1 );
+            time = (0:nPt-1) / self.fs * 1000;
             ylimits = [min( self.voltage(:) ),max( self.voltage(:) )];
             
             counter = 0;
             rowCounter = 0;
+            lh = zeros( 1,numel( chans ) );
             for ch = chans
                 counter = counter+1;
-                subplot( rows,cols,counter ); hold on;
+                lh(counter) = subplot( rows,cols,counter ); hold on;
                 if ~isempty( self.mask )
-                    bestSpikes = find( self.mask(ch,:) == 1 );
+                    bestSpikes = self.mask(ch,:) == 1;
                 else
-                    bestSpikes = 1:self.nSpikes;
+                    bestSpikes = true( 1,self.nSpikes );
                 end
-                if ~isempty( bestSpikes )
-                    plot( time,self.voltage(:,bestSpikes,ch),'color',col );
+                nSp = nnz( bestSpikes );
+                if nSp > 0
+                    data = [self.voltage(:,bestSpikes,ch);nan( 1,nSp )];
+                    data = reshape( data,(nPt+1)*nSp,1 );    
+                    bigTime = repmat( [time,nan],1,nSp );
+                    line( bigTime,data,'color',col );
                 end
 
                 % change plot appearance
                 set( gca,'xlim',[time(1) time(end)],'ylim',ylimits,'color','k','ycolor','k','xcolor','k' );
                 title( sprintf( 'CH %i',ch ),'color','w' );
-                if mod( counter,cols ) == 1
+                if mod( counter,cols ) == 1 || numel( chans ) == 1
                     ylabel( self.voltUnits );
                     set( gca,'ycolor','w' );
                     rowCounter = rowCounter + 1;
                 end
-                if rowCounter == rows
+                if rowCounter == rows || numel( chans ) == 1
                     xlabel( 'time (ms)' );
                     set( gca,'xcolor','w' );
                 end
             end
 
-            % convert to dark theme and link plots
+            % convert to dark theme
             set( gcf,'color','k' );
-            linkaxes( get( gcf,'Children'),'xy' );
+            linkaxes( lh,'xy' );
         end
         
         
@@ -212,10 +218,13 @@ classdef Spikes < Container
             end
 
             % loop over channels
+            hasMask = ~isempty( self.mask );
+            noLastEig = ~exist( 'lastEig','var' );
+            newVolt = self.voltage;
             for c = 1:size( self.voltage,3 )
                 
                 % check for mask matrix
-                if ~isempty( self.mask )
+                if hasMask
                     unmasked = self.mask(c,:) > 0;
                     if nnz( unmasked ) < 5
                         continue % too few points for accurate denoising
@@ -229,7 +238,7 @@ classdef Spikes < Container
                 s = diag( s );
                 
                 % find final singular vector to keep
-                if ~exist( 'lastEig','var' ) 
+                if noLastEig 
                     last = find( cumsum( s ) / sum( s ) >= varExp,1 );
                     s(last+1:end) = 0;
                 else
@@ -237,9 +246,10 @@ classdef Spikes < Container
                 end
                 
                 % reconstruct using a reduced singular vector subspace
-                self.voltage(:,unmasked,c) = u*diag( s )*v';
+                newVolt(:,unmasked,c) = u*diag( s )*v';
                 clear u s v
             end
+            self.voltage = newVolt; 
         end
 
     end % methods

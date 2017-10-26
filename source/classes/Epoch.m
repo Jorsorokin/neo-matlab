@@ -150,10 +150,13 @@ classdef Epoch < Container
             % get all the ChannelIndex IDs associated with each signal
             allChInd = {signals.chanInd}; % each cell contains channelindex numbers for that signal
             
+            % get voltage from all signals
+            allVolt = [signals.voltage];
+            
             % loop over the signal objects defined by IDX
             count = 0;
             for i = 1:nSigs
-                count = count+1;
+                count = count + 1;
 
                 % find Signals that are associated with a common channelindex
                 commonChanInd = cell2mat( cellfun( @(x)...
@@ -161,7 +164,7 @@ classdef Epoch < Container
                 indices(commonChanInd) = false;
                 
                 % get mean voltage waveforms across all other signals
-                CAR(:,count) = mean( [signals(indices).voltage],2 );
+                CAR(:,count) = mean( allVolt(:,indices),2 );
                 
                 indices(commonChanInd) = true;
             end 
@@ -392,9 +395,8 @@ classdef Epoch < Container
             
             % set up plotting parameters
             nChIdx = numel( sig ); % number of Signal objects (grouped channels)
-            counter = 0;
             figure; hold on;
-            cmap = colormap( parula( nChIdx ) );
+            %cmap = colormap( parula( nChIdx ) );
             
             % get noise estimate average
             noise = 0;
@@ -466,7 +468,7 @@ classdef Epoch < Container
             if isempty( spikes )
                 disp( 'Must detect spikes first' );
                 projections = nan;
-                return;
+                return
             end
 
             % Preallocate our firing rate matrix

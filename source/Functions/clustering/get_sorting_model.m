@@ -1,4 +1,4 @@
-function model = get_sorting_model( X,labels,method,(mask) )
+function model = get_sorting_model( X,labels,method )
 % model = get_sorting_model( X,labels,method )
 %
 % retrieve the model parameters used to sort the data in X 
@@ -16,6 +16,7 @@ function model = get_sorting_model( X,labels,method,(mask) )
 %			'Km'		:	k-means
 %			'VB'		:	variational bayes for gaussian mixture model
 %			'DBSCAN'	:	density-based spatial clustering 
+%           'HDBSCAN'   :   hierarchical DBSCAN
 %			'Spectral'	:	spectral clustering using the eigenmap of the laplacian matrix
 %
 % Outputs:
@@ -23,6 +24,8 @@ function model = get_sorting_model( X,labels,method,(mask) )
 %			the same sorting method 
 %
 % By JMS, 9/15/2017
+%
+% Currently only works for non-spectral-based clustering methods (9/27/17)
 
 model = struct;
 
@@ -30,13 +33,16 @@ model = struct;
 switch method
 	case {'EM-GMM','VB','Km'}
 		[model.mu,model.Sigma] = get_cluster_description( X,labels );
-		[model.probabilities,model.w] = get_cluster_probabilities( X,labels,model.mu,model.Sigma );
+		[model.probabilities,model.w] = compute_cluster_probabilities( X,labels,model.mu,model.Sigma );
 
 	case 'DBSCAN'
 		fprintf( 'DBSCAN model creation under development\n' );
 
 	case 'Spectral'
 		fprintf( 'Spectral clustering model creation under development\n' );
+
+    case 'HDBSCAN'
+        fprintf( 'HDBSCAN model creation is automatic' );
 end
 
 

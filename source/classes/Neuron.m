@@ -127,7 +127,10 @@ classdef Neuron < Container
                 self.nChan = size( child(1).voltage,3 );
             end
             npoints = size( child(1).voltage,1 );
-            nSp = [child.nSpikes];
+            nSp = zeros( 1,numel( child ) );
+            for i = 1:numel( child )
+                nSp(i) = numel( child(i).times );
+            end
             nEpoch = numel( child );
             times = nan( max( nSp ),nEpoch );
             snips = nan( npoints,sum( nSp ),self.nChan );
@@ -136,7 +139,8 @@ classdef Neuron < Container
             
             % loop over Spike objects
             counter = 0;
-            for i = 1:numel( child )
+            nChild = numel( child );
+            for i = 1:nChild
                 thisInd = counter+1:counter+nSp(i);
                 snips(:,thisInd,:) = child(i).voltage;
                 times(1:nSp(i),i) = child(i).times;

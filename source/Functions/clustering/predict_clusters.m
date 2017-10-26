@@ -40,15 +40,16 @@ switch method
             labels = mixGaussVbPred( X',model );
         end
 
-    case {'Km'}
+    case 'Km'
         % get the closest centroid to each data point
         labels = nn_batch( X,model.mu,1 );
 
-    case {'Spectral'}
-        fprintf( 'Spectral cluster prediction under development...\n' );
-        labels = nan;
+    case 'Spectral'
+        W = adjacency_graph( X,model.neighborType,model.nNeighbors );
+        D = diag( sum( W,2 ) ); 
+        labels = wMSC( W,D,model.sigma,model.K )
 
-    case {'DBSCAN'}
+    case 'DBSCAN'
         fprintf( 'DBSCAN cluster prediction under development...\n' );
         labels = nan;
 

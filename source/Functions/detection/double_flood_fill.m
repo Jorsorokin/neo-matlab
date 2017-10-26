@@ -1,9 +1,5 @@
 function [snips,sptimes,mask] = double_flood_fill( data,fs,varargin )
-<<<<<<< HEAD:source/Functions/detection/double_flood_fill.m
 % [snips,sptimes,mask] = double_flood_fill( data,fs,(chanMap,lowThresh,highThresh,maxPts,maxChans) );
-=======
-% [snips,times,mask] = double_flood_fill( data,fs,(chanMap,lowThresh,highThresh) );
->>>>>>> origin/master:source/Functions/maskedEM/double_flood_fill.m
 %
 % Detects spikes in the n x m matrix "data" using a double flood-fill
 % algorithm. Spikes are detected as a continuous group of spatio-temporally
@@ -60,7 +56,7 @@ function [snips,sptimes,mask] = double_flood_fill( data,fs,varargin )
 %               1 : |(i,j)| > beta
 %       0 < x < 1 : alpha < |(i,j)| < beta
 %
-%           where   "alpha" = lowThresh * SD( channel_i )
+%           where   "alpha" = lowThresh  * SD( channel_i )
 %           and     "beta"  = highThresh * SD( channel_i )
 %
 %   Thus, for each spike j, a mask is computed for each channel depending on the peak 
@@ -72,7 +68,8 @@ function [snips,sptimes,mask] = double_flood_fill( data,fs,varargin )
 %   than the highThresh are completely unmasked. And anything in between is given a mask between
 %   [0,1] depending on the value of the spike amplitude for that channel. 
 %        
-% This function is part of the Masked-EM algorithm, outlined by Kadir et al. 2015
+% This function is part of the Masked-EM algorithm, outlined by Kadir et
+% al. 2015, but works for any data set with multiple channels
 %
 % By JMS, 8/7/2017
 
@@ -108,19 +105,11 @@ stop(end) = n; % avoids extracting more data than available
 
 % loop over data segments, find connected components via double ff algorithm
 for j = 1:numSegs
-<<<<<<< HEAD:source/Functions/detection/double_flood_fill.m
     seg = data(start(j):stop(j),p.chanMap)'; % using p.chanMap ensures the channels are continuous
     
     % compute the low-threshold connected & adjacency matrix
     lowCheck = bsxfun( @gt,-seg,p.lowThresh*noise );
     highCheck = bsxfun( @gt,-seg,p.highThresh*noise ); 
-=======
-    seg = data(start(j):stop(j),p.chanMap)'; % using p.chanMap ensures the channels are continuous. if not, isolated "spike islands" will occur
-
-    % compute the low-threshold connected & adjacency matrix
-    lowCheck = bsxfun( @gt,-seg,p.lowThresh*sd ); % low memory implementation
-    highCheck = bsxfun( @gt,-seg,p.highThresh*sd ); 
->>>>>>> origin/master:source/Functions/maskedEM/double_flood_fill.m
 
     % find the connected components among low-threshold crosses
     components = bwconncomp( lowCheck ); 
@@ -136,11 +125,7 @@ for j = 1:numSegs
     nComponents = numel( finalLabels );
     snips{j} = nan( totalSamples,nComponents,m ); 
     sptimes{j} = nan( 1,nComponents );
-<<<<<<< HEAD:source/Functions/detection/double_flood_fill.m
     mask{j} = zeros( m,nComponents );
-=======
-    mask{j} = zeros( m,nComponents,'single' );
->>>>>>> origin/master:source/Functions/maskedEM/double_flood_fill.m
     spikes = nan( totalSamples*2,nComponents,m );
     sz = components.ImageSize;
     
@@ -158,88 +143,61 @@ for j = 1:numSegs
         end
 
         % pull out the points corresponding to this component
-<<<<<<< HEAD:source/Functions/detection/double_flood_fill.m
         alpha = p.lowThresh * noise(ch)';
         beta = p.highThresh * noise(ch)';
         psi = seg(ch,pt)';
-    
-=======
-        alpha = p.lowThresh * sd(ch)';
-        beta = p.highThresh * sd(ch)';
-        psi = zeros( nPt,nCh );
-        for c = 1:nCh
-            for t = 1:nPt
-                psi(t,c) = seg(ch(c),pt(t));
-            end
-        end
-
->>>>>>> origin/master:source/Functions/maskedEM/double_flood_fill.m
-        % check if any point in "psi" larger than the artifact level
-        if any( abs( psi ) > p.artifact )
-            continue
-        end
-        
+            
         % now find the spike onset as the center of mass of all connected points
         % of this component:
         %       t_spike = SUM{ t * psi^p } / SUM{ psi^p }
         %   where "p" is a power-weighting that determines alignment on spike peak 
-<<<<<<< HEAD:source/Functions/detection/double_flood_fill.m
         %   or center of mass (inf or 1, respectively)
-        t_spike = sum( sum( bsxfun( @times,psi.^2,pt ) ) ) / sum( sum( psi.^2 ) );
+        t_spike = sum( sum( bsxfun( @times,psi.^5,pt ) ) ) / sum( sum( psi.^5 ) );
         closestPt = round( t_spike );
          
         % create our mask for the ith component as:
         %   max_t{ min{ (-V(t,c) - alpha) / (beta - alpha), 1 } }
         psi_masked = max( min( bsxfun( @rdivide,bsxfun( @minus,-psi,alpha ),(beta - alpha) ),1 ) );
-=======
-        %   or center of mass (inf or 1, respectively). p = 2 is a good balance. 
-        t_spike = sum( sum( pt' * psi.^2 ) ) / sum( sum( psi.^2 ) );
-        closestPt = round( t_spike ); 
->>>>>>> origin/master:source/Functions/maskedEM/double_flood_fill.m
 
         % skip if this point is too close to the edge of the recording
         if (closestPt - preSamples*2 < 1) || (closestPt + postSamples*2 > n_sub)
             continue
         end
         
-        % skip this point if another channel in the connected component
-        % has a larger deflection within the pre/post time of this spike
-        %       i.e. overlapping spikes from a different component
+        % pull out the spike waveform
         thisSpike = seg(:,closestPt-preSamples*2:closestPt+postSamples*2-1)';
-        if min( min( thisSpike(preSamples:preSamples+postSamples,ch) ) ) < min( psi(:) )
+        
+        % skip if in general this is an artifact
+        if any( abs( thisSpike ) >= p.artifact )
             continue
         end
-
-<<<<<<< HEAD:source/Functions/detection/double_flood_fill.m
+        
+        % skip this point if another channel in the connected component
+        % has a large deflection within the pre/post time of this spike
+        %       i.e. overlapping spikes from a different component
+        if any( abs( thisSpike(preSamples:preSamples+postSamples,ch) ) > max( abs( psi ) ) ) 
+            continue
+        end
+        
+        % skip if points not within the psi-range of the connected
+        % components have deflection greter than beta
+        if any( thisSpike([1:preSamples,preSamples*2+postSamples:end],ch) < -beta )
+            continue
+        end
+        
         % add to our "spikes" matrix and update spike times and mask
         spikes(:,counter,p.chanMap) = thisSpike; % back into original channel order as supplied
         sptimes{j}(counter) = t_spike; 
-=======
-        % now that we have t_spike, use the closest actual sample point to pull out the spike across channels
-        spikes(:,counter,p.chanMap) = seg( :,closestPt-preSamples*2:closestPt+postSamples*2 - 1 )'; % back into original channel order as supplied
-        sptimes{j}(counter) = t_spike; 
-
-        % update our mask matrix for this component
->>>>>>> origin/master:source/Functions/maskedEM/double_flood_fill.m
         mask{j}(p.chanMap(ch),counter) = psi_masked; % we un-do the channel mapping and only change channels associated with this component
         counter = counter + 1;
     end
 
-<<<<<<< HEAD:source/Functions/detection/double_flood_fill.m
     % now we need to align the spike waveforms since t_spike may not be an exact sample point.
     % we use cubic spline interpolation surrounding this point, 
     % extract less data before/after this point than the original data
     snips{j} = interpolate_spikes( spikes,fs,(sptimes{j}-round( sptimes{j} ))/fs + preTime*2,...
                                         preTime,postTime,0.6,1 ); % 1x interpolation with slight smoothing
     sptimes{j}(:) = (sptimes{j} + start(j) - 1); % to make relative to the start of "data", not "seg"
-=======
-    % now we need to align the spike waveforms according to their center of mass.
-    % since t_spike may not be an exact sample point, we use cubic spline interpolation surrounding this 
-    % point, extract less data before/after this point than the original data, then down sample
-    snips{j} = interpolate_spikes( spikes,sptimes{j}-round( sptimes{j} ) + preSamples*2,...
-                                        fs,preSamples,postSamples );
-    sptimes{j} = (sptimes{j} + start(j) - 1); % to make relative to the start of "data", not "seg"
->>>>>>> origin/master:source/Functions/maskedEM/double_flood_fill.m
 
     % finally, remove any nan's in our matrices
     badInds = isnan( sptimes{j} );
@@ -253,12 +211,7 @@ end
 % now concatenate the data
 snips = [snips{:}];
 sptimes = [sptimes{:}];
-<<<<<<< HEAD:source/Functions/detection/double_flood_fill.m
 mask = [mask{:}];
-=======
-mask = sparse( double( [mask{:}] ) );
-
->>>>>>> origin/master:source/Functions/maskedEM/double_flood_fill.m
 
 %% HELPER FUNCTIONS
 function p = check_inputs()

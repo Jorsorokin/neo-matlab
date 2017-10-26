@@ -1,12 +1,12 @@
 function st_clear_plots( handles )
-    % function clear_plots( handles )
+    % function st_clear_plots( handles )
     %
     % clears all plots (waveform, isi, raster) except for the main plot in
     % the sortTool GUI
     
     % check for validity of plot handles & clear each
-    for c = 1:numel( handles.waveformplot )
-        if ~isa( handles.waveformplot(c),'double' ) && isvalid( handles.waveformplot(c) )
+    if ~isa( handles.waveformplot(1),'double' ) && isvalid( handles.waveformplot(1) )
+        for c = 1:numel( handles.waveformplot )
             cla( handles.waveformplot(c) );
         end
     end

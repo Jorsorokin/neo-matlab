@@ -1,4 +1,41 @@
 classdef Block < Container
+    % self = Block( filename,date,condition,filepath )
+    %
+    % Initiate an instance of the Block class. A Block is 
+    % the top-level container for a given recording session,
+    % and contains ChannelIndex and Epoch classes as children.
+    % 
+    % The main purpose of the Block container is to tie the 
+    % data (channels, epochs, signals, neurons, & spikes)
+    % together into a unified recording session for storage
+    % and organization.
+    %
+    % Children:
+    %   Epoch
+    %   ChannelIndex
+    %   Electrode
+    %
+    % Parents:
+    %   none
+    %
+    % Properties:
+    %   filename - name of the recorded data file
+    %   date - date recorded
+    %   condition - any condition specific to this recording (i.e. "nose poke", etc.)
+    %   filepath - path of the recorded data file
+    %   nEpochs - number of Epochs extracted
+    %   nChanInds - number of ChannelIndex objects extracted
+    %   nUnits - number of Neurons identified
+    %   nSignals - number of raw voltage signals (total across channels/epochs)   
+    %
+    % Methods:
+    %   print
+    %   update
+    %   write
+    %   getNeurons
+    %   createClusterModel
+    %
+    %       * see also methods in the Container class
     
     properties
         filename
@@ -17,40 +54,7 @@ classdef Block < Container
         function self = Block( filename,date,condition,filepath )
             % self = Block( filename,date,condition,filepath )
             %
-            % Initiate an instance of the Block class. A Block is 
-            % the top-level container for a given recording session,
-            % and contains ChannelIndex and Epoch classes as children.
-            % 
-            % The main purpose of the Block container is to tie the 
-            % data (channels, epochs, signals, neurons, & spikes)
-            % together into a unified recording session for storage
-            % and organization.
-            %
-            % Children:
-            %   Epoch
-            %   ChannelIndex
-            %   Electrode
-            %
-            % Parents:
-            %   none
-            %
-            % Properties:
-            %   filename - name of the recorded data file
-            %   date - date recorded
-            %   condition - any condition specific to this recording (i.e. "nose poke", etc.)
-            %   filepath - path of the recorded data file
-            %   nEpochs - number of Epochs extracted
-            %   nChanInds - number of ChannelIndex objects extracted
-            %   nUnits - number of Neurons identified
-            %   nSignals - number of raw voltage signals (total across channels/epochs)   
-            %
-            % Methods:
-            %   print
-            %   update
-            %   write
-            %   getNeurons
-            %
-            %       * see also methods in the Container class
+            % initiates the Block object
 
             self.filename = filename;
             self.date = date;
@@ -106,40 +110,42 @@ classdef Block < Container
             chanind = self.getChild( 'ChannelIndex' );
             electrode = self.getChild( 'Electrode' );
             neurons = self.getNeurons();
+            %signals = self.getSignals();
 
             % check for validity & update: ChannelIndex
             % =========================================
+            chanind(~isvalid( chanind )) = []; % eliminates bad channel indices
             if ~isempty( chanind )     
                 self.nElectrodes = 0;
                 chanind(~isvalid( chanind )) = [];
-                for j = 1:numel( chanind )
+                hasElectrodes = find( [chanind.nElectrodes] );
+                for j = hasElectrodes
                     chanElectrodes = chanind(j).getChild( 'Electrode' );
-                    if ~isempty( chanElectrodes )
-                        electrodeID = [chanElectrodes.electrodeNum];
-                        chanind(j).nElectrodes = numel( electrodeID );
-                        chanind(j).chanIDs = electrodeID; % the actual electrode IDs 
-                    end
-                    self.nElectrodes = self.nElectrodes + numel( chanElectrodes );
+                    electrodeID = [chanElectrodes.electrodeNum];
+                    chanind(j).nElectrodes = numel( electrodeID );
+                    chanind(j).chanIDs = electrodeID; % the actual electrode IDs 
                 end
             end
             self.nChanInds = numel( chanind );
             % =========================================
             
-            % check validity & update: Electrode & Signal
-            % ==========================================
-            if ~isempty( electrode )
-                nSig = 0;
-                electrode(~isvalid( electrode )) = [];
+            % check validity & update: Electrode 
+            % ==================================
+            if isempty( electrode )
+                self.nElectrodes = 0;
+            else
+                electrode(~isvalid( electrode )) = []; % eliminates bad electrodes
                 for j = 1:numel( electrode )
-                    nSig = nSig + electrode(j).nSignals;
                     chanind = electrode(j).getParent( 'ChannelIndex' );
                     if ~isempty( chanind )
-                        electrode(j).chanInd = [electrode(j).getParent( 'ChannelIndex' ).chanIndNum]; % all parent ChannelIndex 
+                        electrode(j).chanInd = [chanind.chanIndNum]; % all parent ChannelIndex 
                         electrode(j).nChanInd = numel( chanind );
                     else
                         electrode(j).chanInd = [];
                         electrode(j).nChanInd = 0;
-                    end
+                    end                    
+
+                    % update the signals in this electrode
                     for sig = 1:electrode(j).nSignals
                         signal = electrode(j).getChild( 'Signal',sig );
 
@@ -156,38 +162,45 @@ classdef Block < Container
                         end
                     end
                 end
-                self.nSignals = nSig;
-            else
-                self.nSignals = 0;
+                self.nElectrodes = numel( electrode );
             end
-            self.nElectrodes = numel( electrode );
-            % ===========================================
+            % =================================
 
             % check validity & update: Epoch
             % ==============================
+            nSig = 0;
+            nEp = 0;
             if ~isempty( epoch )
                 epoch(~isvalid( epoch )) = [];
+                nEp = numel( epoch );
                 
-                % loop over spike objects, remove those that are not valid
-                for ep = 1:numel( epoch )
-                    spikes = epoch(ep).getChild( 'Spikes' );
-                    signals = epoch(ep).getChild( 'Signal' );
-                    if ~isempty( signals )
-                        signals(~isvalid(signals)) = [];
-                    end
-                    epoch(ep).nSignals = numel( signals );
-                    if ~isempty( spikes )
-                        spikes(~isvalid( spikes )) = [];
-                        for sp = 1:numel( spikes )
-                            if isempty( spikes(sp).getParent( 'Neuron' ) )
-                                spikes(sp).deleteSelf(); 
-                            end
+                % loop over spike/signal objects, remove those that are not valid
+                if nEp > 0
+                    for ep = 1:nEp
+                        spikes = epoch(ep).getChild( 'Spikes' );
+                        signals = epoch(ep).getChild( 'Signal' );
+                        if ~isempty( signals )
+                            signals(~isvalid(signals)) = [];
                         end
-                        spikes(~isvalid( spikes )) = [];
+                        nSig = nSig + numel( signals );
+                        epoch(ep).nSignals = numel( signals );
+
+                        if ~isempty( spikes )
+                            spikes(~isvalid( spikes )) = [];
+                            for sp = 1:numel( spikes )
+                                if isempty( spikes(sp).getParent( 'Neuron' ) )
+                                    spikes(sp).deleteSelf(); 
+                                else
+                                    spikes(sp).nSpikes = size( spikes(sp).voltage,2 );
+                                end
+                            end
+                            spikes(~isvalid( spikes )) = [];
+                        end
                     end
                 end
             end
-            self.nEpochs = numel( epoch );
+            self.nSignals = nSig;
+            self.nEpochs = nEp;
             % =========================================
 
             % check validity & update: Neuron
@@ -238,10 +251,21 @@ classdef Block < Container
             chanind = self.getChild( 'ChannelIndex' );
             neurons = [];
             if ~isempty( chanind )
-                for j = 1:numel( chanind )
-                    neurons = [neurons,chanind(j).getChild( 'Neuron' )];
+                for j = numel( chanind ):-1:1
+                    neurons = [chanind(j).getChild( 'Neuron' ),neurons]; % negative indexing to pre-allocate max array first
                 end
             end
+        end
+        
+        
+        function createClusterModel( self )
+           % createClusterModel( self )
+           %
+           % creates a clustering model for each ChannelIndex child
+           % using a subset of spikes associated with that ChannelIndex,
+           % then saves the clustering model into the corresponding 
+           % ChannelIndex into the "model" property
+            
         end
                 
     end % methods

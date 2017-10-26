@@ -14,27 +14,25 @@ function [neighbors,distances,D] = compute_nearest_neighbors( X,Y,k )
 [m,~] = size( Y );
 
 % use the compliex MEX code for fast NN calculation
-%[neighbors,distances] = nn_batch_mex( X,Y,k );
 if any( k > [n,m] )
     error( 'requested more neighbors than number of points' );
 end
 
 % calculate the ranges for looping
 neighbors = zeros( n,k );
-distances = zeros(n,k );
+distances = zeros( n,k );
 [start,stop] = find_blockIndex_range( m,n );
 
 for i = 1:numel( start )
     
     % euclidean distance
     pts = X(start(i):stop(i),:);
-    S = sqrt( abs( bsxfun( @plus,dot( pts,Y,2 ),...
-                            bsxfun( @minus,dot( pts,Y,2 ),2*(pts*Y') ) ) ) ); 
+    S = compute_pairwise_dist( pts,Y );
     
     % nearest neighbors
     [S(:),idx] = sort( S,'ascend' ); % sorts smallest - largest columns for each row
     neighbors(start(i):stop(i),:) = idx(2:k+1,:)';
-    distances(start(i):stop(i),:) = S(2:k+1,:)';
+    distances(start(i):stop(i),:) = real( sqrt( S(2:k+1,:) ) )';
 end
 
 % compute the sparse distance matrix

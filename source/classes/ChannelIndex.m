@@ -56,6 +56,7 @@ classdef ChannelIndex < Container
             %   waveDenoise
             %   detectSpikes
             %   sortSpikes
+            %   sortSpikes_fromModel
             %   sortGUI
             %   plotSpikes
             %   plotFeatures
@@ -113,8 +114,8 @@ classdef ChannelIndex < Container
             end
 
             electrodes = self.getChild( 'Electrode' );
-            for j = 1:self.nElectrodes
-                signals = [signals,electrodes(j).getChild( 'Signal' )];
+            for j = self.nElectrodes:-1:1
+                signals = [electrodes(j).getChild( 'Signal' ),signals]; % negative indexing for performance
             end
         end
 
@@ -221,8 +222,8 @@ classdef ChannelIndex < Container
 
             % pull out the actual Signals & the total Epochs/Electrodes
             signals = [];
-            for j = 1:self.nElectrodes
-                signals = [signals,electrodes(j).getChild( 'Signal' )];
+            for j = self.nElectrodes:-1:1
+                signals = [electrodes(j).getChild( 'Signal' ),signals]; % negative indexing for performance
             end
 
             % get their epochs 
@@ -360,7 +361,7 @@ classdef ChannelIndex < Container
             epochnum = [];
             mask = [];
             for ind = p.neuronID
-                [v,t,ep,m] = neurons.findobj('ID',ind).getSpikes();
+                [v,t,ep,m] = neurons.findobj( 'ID',ind ).getSpikes();
                 
                 % concatenate the spiketimes into one long vector
                 t = reshape( t,1,numel( t ) );
@@ -373,7 +374,7 @@ classdef ChannelIndex < Container
                 mask = [mask,m];
                 clear t v ep m
             end           
-            fs = neurons(1).getChild('Spikes',1).fs;
+            fs = neurons(1).getChild( 'Spikes',1 ).fs;
             
             % Spike sorting
             % =============================================================
@@ -531,6 +532,86 @@ classdef ChannelIndex < Container
         end
 
         
+        function sortGUI( self,varargin )
+            % sortGUI( self,(neuronIDs) )
+            %
+            % creates an instance of the sortTool.fig GUI for visualizing
+            % sorting results in better detail, and providing flexibility 
+            % regarding manual clustering and projection methods.
+            %
+            % By default, all spikes from all Neuron children of the current container
+            % will be fed into the sortTool GUI, however one can specify a 
+            % subset of neurons via the optional arugment "neuronID", which will 
+            % only provide the spike waveforms from Neurons with those IDs (for further sorting).
+            neurons = self.getChild( 'Neuron' );
+            if isempty( neurons )
+                disp( 'Must detect spikes first!' );
+                return
+            end
+
+            % check input
+            if nargin > 1 && ~isempty( varargin{1} )
+                neuronIDs = varargin{1};
+                neurons = neurons(ismember( [neurons.ID],neuronIDs ));
+            else
+                neuronIDs = [neurons.ID];
+            end
+            
+            % determine if any spikes with this ID exist
+            nNeurons = numel( neurons );
+            if nNeurons == 0
+                disp( 'No Neurons with provided IDs belong to this ChannelIndex' );
+                return
+            end
+
+            % determine if any electrodes added
+            if self.nElectrodes == 0
+                disp( 'Mismatch between # of electrodes among data objects' );
+                disp( 'Check your data heirarchy (try running "block.update()")' );
+                return
+            end
+            
+            % get the spikes from these neurons
+            nSpikes = [neurons.nSpikes];
+            nPts = size( neurons(1).getChild( 'Spikes',1 ).voltage,1 );
+            spsnips = nan( nPts,sum( nSpikes ),self.nElectrodes );   % nPt x nSp x nCh matrix (spike waveforms)
+            sptimes = nan( sum( nSpikes ),1 );                       % nSp x 1 vector (spike times)
+            epoch = sptimes;                                         % nSp x 1 vector (parent epoch)
+            id = sptimes;                                            % nSp x 1 vector (class labels) 
+            mask = nan( self.nElectrodes,sum( nSpikes ) );           % nCh x nSp matrix (spike mask)
+            counter = 0;
+            for n = 1:nNeurons
+                inds = counter+1:counter+nSpikes(n);
+                [spsnips(:,inds,:),times,epoch(inds),m] = neurons(n).getSpikes();
+                if ~isempty( m )
+                    mask(:,inds) = m;
+                end
+                times = reshape( times,numel(times),1 );
+                times( isnan( times ) ) = [];
+                sptimes(inds) = times;
+                id(inds) = neurons(n).ID;
+                counter = counter + nSpikes(n);
+                clear times
+            end
+
+            % initiate the sortTool GUI with the provided waveforms and labels
+            [newID,features,model] = sortTool( 'data',spsnips,...
+                'times',sptimes','trials',epoch','labels',id' );
+
+            % create new neurons / eliminate old
+            if max( newID ) > 0 
+               if numel( newID ) ~= numel( sptimes ) || any( ~ismember( newID,id ) )
+                    self.create_new_neurons( spsnips(:,model.keptPts,:),sptimes(model.keptPts),...
+                        epoch(model.keptPts),neuronIDs,newID,features,...
+                        model.probabilities,model.projectMethod,...
+                        model.sortModel,model.W,mask(:,model.keptPts) );
+                   % self.projMatrix = model.W;
+                   % self.sortModel = model.sortModel;
+               end
+            end
+        end
+        
+        
         function plotSpikes( self,varargin )
             % plotSpikes( self,(epoch,neuronIDs) )
             %
@@ -614,86 +695,6 @@ classdef ChannelIndex < Container
                 else
                     suptitle( sprintf( 'ChanInd #%i spike features',self.chanIndNum ) );
                 end
-            end
-        end
-
-
-        function sortGUI( self,varargin )
-            % sortGUI( self,(neuronIDs) )
-            %
-            % creates an instance of the sortTool.fig GUI for visualizing
-            % sorting results in better detail, and providing flexibility 
-            % regarding manual clustering and projection methods.
-            %
-            % By default, all spikes from all Neuron children of the current container
-            % will be fed into the sortTool GUI, however one can specify a 
-            % subset of neurons via the optional arugment "neuronID", which will 
-            % only provide the spike waveforms from Neurons with those IDs (for further sorting).
-            neurons = self.getChild( 'Neuron' );
-            if isempty( neurons )
-                disp( 'Must detect spikes first!' );
-                return
-            end
-
-            % check input
-            if nargin > 1 && ~isempty( varargin{1} )
-                neuronIDs = varargin{1};
-                neurons = neurons(ismember( [neurons.ID],neuronIDs ));
-            else
-                neuronIDs = [neurons.ID];
-            end
-            
-            % determine if any spikes with this ID exist
-            nNeurons = numel( neurons );
-            if nNeurons == 0
-                disp( 'No Neurons with provided IDs belong to this ChannelIndex' );
-                return
-            end
-
-            % determine if any electrodes added
-            if self.nElectrodes == 0
-                disp( 'Mismatch between # of electrodes among data objects' );
-                disp( 'Check your data heirarchy (try running "block.update()")' );
-                return
-            end
-            
-            % get the spikes from these neurons
-            nSpikes = [neurons.nSpikes];
-            nPts = size( neurons(1).getChild( 'Spikes',1 ).voltage,1 );
-            spsnips = nan( nPts,sum( nSpikes ),self.nElectrodes );   % nPt x nSp x nCh matrix (spike waveforms)
-            sptimes = nan( sum( nSpikes ),1 );                       % nSp x 1 vector (spike times)
-            epoch = sptimes;                                         % nSp x 1 vector (parent epoch)
-            id = sptimes;                                            % nSp x 1 vector (class labels) 
-            mask = nan( self.nElectrodes,sum( nSpikes ) );           % nCh x nSp matrix (spike mask)
-            counter = 0;
-            for n = 1:nNeurons
-                inds = counter+1:counter+nSpikes(n);
-                [spsnips(:,inds,:),times,epoch(inds),m] = neurons(n).getSpikes();
-                if ~isempty( m )
-                    mask(:,inds) = m;
-                end
-                times = reshape( times,numel(times),1 );
-                times( isnan( times ) ) = [];
-                sptimes(inds) = times;
-                id(inds) = neurons(n).ID;
-                counter = counter + nSpikes(n);
-                clear times
-            end
-
-            % initiate the sortTool GUI with the provided waveforms and labels
-            [newID,features,model] = sortTool( 'data',spsnips,...
-                'times',sptimes','trials',epoch','labels',id' );
-
-            % create new neurons / eliminate old
-            if max( newID ) > 0 
-               if numel( newID ) ~= numel( sptimes ) || any( ~ismember( newID,id ) )
-                    self.create_new_neurons( spsnips(:,model.keptPts,:),sptimes(model.keptPts),...
-                        epoch(model.keptPts),neuronIDs,newID,features,...
-                        model.probabilities,model.projectMethod,...
-                        model.sortModel,model.W,mask(:,model.keptPts) );
-                   % self.projMatrix = model.W;
-                   % self.sortModel = model.sortModel;
-               end
             end
         end
         
