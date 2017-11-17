@@ -80,7 +80,8 @@ function varargout = sortTool( varargin )
     %                   probabilities   - the probabilities of each spike
     %                                       belonging to each kth cluster
     %
-    % Last edited by Jordan Sorokin, 10/16/2017
+    % Copywrite: Jordan Sorokin (Jorsorokin@gmail.com)
+    % Last Edited: 11/8/2017
 
     % Begin initialization code - DO NOT EDIT
     gui_Singleton = 1;
@@ -150,6 +151,9 @@ function varargout = sortTool( varargin )
         handles.sortOptions.minpts = 5;                 % 5 pts min for density-based clustering
         handles.sortOptions.minclustsize = 5;           % any clusters with < this are set to 0
         handles.sortOptions.outlierThresh = 0.9;        % for HDBSCAN
+        handles.sortOptions.clusterMetric = 'Silhouette'; % For measuring cluster quality
+        handles.sortOptions.tryMerge = false;           % tries to merge clusters upon "refine clusts" pushbutton if true
+        
         uimenu( handles.figure1,...                     % creates "options" menu figure
             'Label','Options',...
             'Callback',@(hObject,eventdata)...
@@ -157,10 +161,11 @@ function varargout = sortTool( varargin )
 
         % create R structure for ouput
         handles.R = struct; 
-        handles.R.projectMethod = 'PCA';            % defaults to PCA first
-        handles.R.sortMethod = 'EM-GMM';            % defaults to EM gaussian mixture modeling
-        handles.R.mapping = nan;                    % the projection mapping
-        handles.R.keptPts = nan;                    % updates if we delete points
+        handles.R.projectMethod = 'PCA';                % defaults to PCA first
+        handles.R.sortMethod = 'EM-GMM';                % defaults to EM gaussian mixture modeling
+        handles.R.mapping = nan;                        % the projection mapping
+        handles.R.keptPts = nan;                        % updates if we delete points
+        handles.R.clusterQuality = nan;                 % stores the quality of the clustering 
         
         % plotting colors for different labels
         handles.allPlotColor = [ [.6, .6, .6];...       % gray              (0)
@@ -187,7 +192,7 @@ function varargout = sortTool( varargin )
                                 ];
                                 
         % repeat colors in case we have many identified neurons
-        handles.allPlotColor = [handles.allPlotColor; repmat( handles.allPlotColor(2:end,:),6,1 )]; 
+        handles.allPlotColor = [handles.allPlotColor; repmat( handles.allPlotColor(2:end,:),15,1 )]; 
         handles.plotcolor = nan;    
         
         % GET THE OPTIONAL INPUTS
@@ -226,6 +231,7 @@ function varargout = sortTool( varargin )
         handles.waveformplot = nan;
         handles.isiplot = nan;
         handles.rasterplot = nan;
+        handles.qualityplot = nan;
         handles.plotcolor = update_plot_colors( handles );
         
         % plot the projections if provided
@@ -245,7 +251,7 @@ function varargout = sortTool( varargin )
 
     % --- Outputs from this function are returned to the command line.
     function varargout = sortTool_OutputFcn( hObject, eventdata, handles )
-        % varargout  cell array for returning output args (see VARARGOUT);
+
         varargout{1} = handles.labels;
         varargout{2} = handles.projection;
         varargout{3} = handles.R;
@@ -263,9 +269,12 @@ function varargout = sortTool( varargin )
         if ~isa( handles.rasterplot,'double' ) && isvalid( handles.rasterplot )
             close( handles.rasterplot.Parent );
         end
-        
+        if ~isa( handles.qualityplot,'double' ) && isvalid( handles.qualityplot )
+            close( handles.qualityplot.Parent );
+        end
                  
-    % --- clears the current figure
+
+    % --- clears the current figure upon "Finish" press
     function CloseMenuItem_Callback(hObject, eventdata)
         handles = guidata( hObject );
         delete( handles.figure1 );
@@ -309,10 +318,19 @@ function varargout = sortTool( varargin )
         % store the values into the relevant variables in 'handles'
         h = findobj( handles.optionsFig,'Tag','General' );
         handles.sortOptions.searchForK = get( findobj( h,'Tag','searchForK' ),'Value' );
-        handles.sortOptions.clustErr = get( findobj( h,'Tag','clustErr'),'Value' );
         handles.sortOptions.rejectProb = str2double( get( findobj( h,'Tag','probBox' ),'String' ) );
         handles.sortOptions.K = str2double( get( findobj( h,'Tag','kBox' ),'String' ) );
         handles.sortOptions.outlierThresh = str2double( get( findobj( h,'Tag','outlierBox' ),'String' ) );
+        handles.sortOptions.tryMerge = get( findobj( h,'Tag','tryMerge' ),'Value' );
+        clusterMetric = findobj( h,'Tag','clusterMetricType' );
+        clusterMetric = clusterMetric.SelectedObject.String;
+        if ~strcmp( handles.sortOptions.clusterMetric,clusterMetric )
+            handles.sortOptions.clusterMetric = clusterMetric;
+            if ~isa( handles.qualityplot,'double' ) && isvalid( handles.qualityplot )
+                cla( handles.qualityplot.Children(1) );
+                cla( handles.qualityplot.Children(2) );
+            end
+        end
 
         h = findobj( handles.optionsFig,'Tag','Graphs' );
         neighborType = findobj( h,'Tag','neighborType' );
@@ -667,7 +685,27 @@ function varargout = sortTool( varargin )
         
         % update
         guidata( hObject,handles );  
+
+
+    % --- executes with plotClusterQuality push 
+    function plotClusterQuality_Callback( hObject,eventdata,handles )
+
+        % check if cluster quality is available
+        if isa( handles.qualityplot,'double' ) || ~isvalid( handles.qualityplot )
+            handles.qualityplot = st_create_qualityPlot( handles );
+        end
+
+        % plot the cluster quality for the clusters
+        switch handles.qualityplot.Visible 
+            case 'on'
+                handles.qualityplot.Visible = 'off';
+            case 'off'
+                st_plot_clusterQuality( handles );
+        end
         
+        % update
+        guidata( hObject,handles );
+
         
     % --- allows right clicking on the scatter plot
     function mapplot_mouseclick( hObject,eventdata,handles )
@@ -794,12 +832,21 @@ function varargout = sortTool( varargin )
             disp( 'No data or projections available. Please load data!' );
             return
         end
+        
+        if ~handles.availableProjection
+            disp( 'Please project data first' );
+            return
+        end
 
         % get the selected points, if any
         if any( handles.selectedPoints )
             pts = handles.selectedPoints;
             saveModel = true;
         else
+            continueSorting = questdlg( 'Sort all points?','Yes','No' );
+            if ~strcmp( continueSorting,'Yes' )
+                return
+            end
             pts = ~handles.selectedPoints;
             saveModel = false;
         end
@@ -823,10 +870,6 @@ function varargout = sortTool( varargin )
         % compute mask if necessary
         switch handles.R.sortMethod
             case {'mVB','mEM-GMM'}
-                if ~handles.availableData
-                    disp( 'No data available. Please load data!' );
-                    return
-                end
                 
                 if any( isnan( handles.mask ) )
                     disp( 'must include a masking matrix for masked-EM and masked-VB sorting' );
@@ -844,12 +887,7 @@ function varargout = sortTool( varargin )
                     mask(:,inds) = repmat( handles.mask(c,pts)',1,handles.nDim );
                 end 
 
-            otherwise
-                if ~handles.availableProjection
-                    disp( 'Please project your data first or load projections!' );
-                    return
-                end
-                    
+            otherwise                    
                 projections = handles.projection(pts,:);
                 mask = nan;
         end
@@ -865,16 +903,17 @@ function varargout = sortTool( varargin )
                                                         'minclustsize',handles.sortOptions.minclustsize,...
                                                         'outlierThresh',handles.sortOptions.outlierThresh );
 
-        % refine the clusters of this sorting run
-        if any( strcmp( handles.R.sortMethod,{'EM-GMM','mEM-GMM','VB','mVB','Km'} ) )
-            projections = gather( handles.projection(pts,:) );
-            tempModel = get_sorting_model( projections,labels,handles.R.sortMethod );
-            labels = st_refine_cluster( labels,tempModel.probabilities,handles.sortOptions.rejectProb ); 
-        end
+        % % refine the clusters of this sorting run
+        % if any( strcmp( handles.R.sortMethod,{'EM-GMM','mEM-GMM','VB','mVB','Km'} ) )
+        %     projections = gather( handles.projection(pts,:) );
+        %     tempModel = get_sorting_model( projections,labels,handles.R.sortMethod );
+        %     labels = st_refine_cluster( labels,tempModel.probabilities,handles.sortOptions.rejectProb ); 
+        % end
 
         % change the labels to contain the original label plus consecutive
         % labels for each new cluster
-        handles.labels = int8( handles.labels );
+        labels = uint8( labels );
+        handles.labels = uint8( handles.labels );
         uID = unique( handles.labels );
         if any( uID > 0 )
             if ~any( handles.selectedPoints )
@@ -927,7 +966,8 @@ function varargout = sortTool( varargin )
         set( handles.autosort,'enable','off' );
         set( handles.projectdata,'enable','off' );
         set( handles.replogt,'enable','off' );
-        
+        set( handles.refineClusts,'enable','off' );
+
         % update
         guidata( hObject,handles );
         
@@ -954,7 +994,6 @@ function varargout = sortTool( varargin )
 
         disp( 'Click on two clusters to merge' );
         axes( handles.mapplot );
-        
         
         % get the points and associated labels with each cluster
         pts = [];
@@ -1024,9 +1063,6 @@ function varargout = sortTool( varargin )
         
     % --- Executes on button press in finishManual.
     function finishManual_Callback(hObject, eventdata, handles)
-        % hObject    handle to finishManual (see GCBO)
-        % eventdata  reserved - to be defined in a future version of MATLAB
-        % handles    structure with handles and user data (see GUIDATA)
 
         % get all new clusters and the points belonging to them
         if sum( ~cellfun( @isempty,handles.manualClust ) > 0 )
@@ -1052,6 +1088,7 @@ function varargout = sortTool( varargin )
         set( handles.autosort,'enable','on' );
         set( handles.projectdata,'enable','on' );
         set( handles.replogt,'enable','on' );
+        set( handles.refineClusts,'enable','on' );
         
         % update
         handles = update_sortmodel( handles );
@@ -1059,7 +1096,65 @@ function varargout = sortTool( varargin )
         st_update_plots( handles );
         guidata( hObject,handles );
     
+
+    % --- Executes on button press in refineClusts
+    function refineClusts_Callback( hObject,eventdata,handles )
+        % dynamically split/merge clusters after sorting based on 
+        % chi-squared tests for chi-squared distributions of each cluster
+
+        % check for any data
+        if ~handles.availableData
+            disp( 'Cluster refinement requires raw data' );
+            return
+        end
+
+        % check if we've sorted
+        if any( isnan( handles.labels ) ) || all( handles.labels == 0 )
+            disp( 'Please sort clusters first' );
+            return
+        end
+
+        % run cluster refinement
+        nDim = 3;
+        tryMerge = handles.sortOptions.tryMerge;
+        handles.labels = uint8( refine_clusters( handles.data,handles.labels,handles.mask,tryMerge,nDim ) );
+
+        % update plots
+        handles = update_sortmodel( handles );
+        handles.plotcolor = update_plot_colors( handles );
+        st_update_plots( handles );
+        guidata( hObject,handles );
+
+
+    % --- Executes on button press in measureClusterQuality
+    function measureQuality_Callback( hObject,eventdata,handles )
+        % measures the quality of the clustering using the method specified by
+        % handles.sortOptions.clusterMetric
+
+        % check for projections
+        if ~handles.availableProjection
+            disp( 'No projections available' );
+            return
+        end
+
+        % check for sorting
+        if all( handles.labels == 0 )
+            disp( 'Please sort clusters first' );
+            return
+        end
+
+        % compute cluster quality and store into handles
+        handles.R.clusterQuality...
+         = measure_cluster_quality( handles.projection,handles.labels,handles.sortOptions.clusterMetric );
         
+        % plot the quality if the figure is available
+        if ~isa( handles.qualityplot,'double' ) && isvalid( handles.qualityplot )
+            st_plot_clusterQuality( handles );
+        end
+     
+        guidata( hObject,handles );
+
+
     % --- Update all the labels
     function handles = update_sortmodel( handles )
         % updates the sorting R for non-spectral sorting
@@ -1091,6 +1186,3 @@ function varargout = sortTool( varargin )
         
     %% random callbacks/fcns not assigned 
     function Untitled_1_Callback(hObject, eventdata, handles)
-        % hObject    handle to Untitled_1 (see GCBO)
-        % eventdata  reserved - to be defined in a future version of MATLAB
-        % handles    structure with handles and user data (see GUIDATA)

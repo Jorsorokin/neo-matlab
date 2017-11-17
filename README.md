@@ -65,7 +65,7 @@ While much of the package was written by me, certain features were either inspir
 
 1. Laurens van der Maaten's wonderful [dimension reduction toolbox](https://lvdmaaten.github.io/drtoolbox/)
 2. The [fastICA](https://research.ics.aalto.fi/ica/fastica/) implementation of ICA
-3. Joshua Stough's [select data](http://www.mathworks.com/matlabcentral/fileexchange/37956-select-data) script (used in the sortTool GUI)
+3. Joshua Stough's [select data function](http://www.mathworks.com/matlabcentral/fileexchange/37956-select-data) (used in the sortTool GUI)
 4. Mo Chen's [EM-GMM and EM-VB](https://github.com/PRML/PRMLT) implementations
 5. Yarpiz [DBSCAN](www.yarpiz.com)
 6. Of course, inspiration from the [Neo](http://neuralensemble.org/neo/) python package
@@ -80,5 +80,7 @@ For further information on using this package for data extraction and organizati
 - [X] functions for clustering via Variational Bayes and EM-TMM in the sortTool GUI
 - [ ] method for visualizing the current heirarchy in the Block object (i.e. [connected graph](http://mathworld.wolfram.com/ConnectedGraph.html))
 - [ ] dealing with different sorting parameters when updating the sortModel property of the Neuron object
-- [X] function for online sorting / assigning new spikes to current Neuron objects [wMSC.m](source/Functions/clustering/wMSC.m)
+- [X] function for online sorting / assigning new spikes to current Neuron objects [wMSC.m](source/Functions/clustering/wMSC.m) & [HDBSCAN](https://github/Jorsorokin/HDBSCAN)
 - [ ] interfacing with SQL for memory-efficient loading/saving and smart querying (SQLite?)
+- [X] incorporating HDBSCAN into the sortTool GUI (see [HDSBCAN repo](https://github/Jorsorokin/HDBSCAN))
+- [X] incorporating automatic cluster refinement & cluster quality measurement into sortTool GUI

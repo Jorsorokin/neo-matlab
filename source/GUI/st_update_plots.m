@@ -35,4 +35,14 @@ function st_update_plots( handles )
             st_plot_raster( handles );
         end
     end
+
+    % quality plot
+    if ~isa( handles.qualityplot,'double' ) && isvalid( handles.qualityplot )
+        if all( ~isnan( handles.R.clusterQuality ) ) && any( handles.selectedPoints )
+            clusts = handles.labels(handles.selectedPoints);
+            ax = handles.qualityplot.Children(2);
+            clusts = ismember( ax.Children.XData,clusts );
+            ax.Children.SizeData(clusts) = 300;
+        end
+    end
 end

@@ -10,10 +10,19 @@ function st_clear_plots( handles )
             cla( handles.waveformplot(c) );
         end
     end
+    
     if ~isa( handles.isiplot,'double' ) && isvalid( handles.isiplot )
         cla( handles.isiplot );
     end
+
     if ~isa( handles.rasterplot,'double' ) && isvalid( handles.rasterplot )
         cla( handles.rasterplot );
+    end
+
+    if ~isa( handles.qualityplot,'double' ) && isvalid( handles.qualityplot )
+        ax = handles.qualityplot.Children(2);
+        if ~isempty( ax.Children )      
+            ax.Children.SizeData(:) = 50;
+        end
     end
 end

@@ -1,6 +1,6 @@
 function ax = st_create_rasterplot( handles )
     % ax = st_create_rasterplot( handles )
-    % creates an instance of the "isiplot" used by the "sortTool" GUI
+    % creates an instance of the "rasterplot" used by the "sortTool" GUI
     %
     % handles is a structure with variables referenced by the main GUI
     figure( 'Visible','off','color','k','position',[260,80,1000,280] );

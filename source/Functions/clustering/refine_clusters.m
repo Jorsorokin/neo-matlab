@@ -1,5 +1,5 @@
 function [labels,labelMap] = refine_clusters( X,labels,varargin )
-    % [labels,labelMap] = refine_clusters( X,labels,(mask,merge) )
+    % [labels,labelMap] = refine_clusters( X,labels,(mask,merge,nDim) )
     %
     % Refines the clusters specified by "labels" by first attempting to 
     % split each subset of data in X belonging to a unique cluster,
@@ -33,7 +33,7 @@ function [labels,labelMap] = refine_clusters( X,labels,varargin )
     
     
     % check inputs
-    if nargin > 2 && ~isempty( varargin{1} )
+    if nargin > 2 && ~isempty( varargin{1} ) && ~any( isnan( varargin{1} ) )
         mask = varargin{1};
     else
         mask = [];
@@ -120,13 +120,12 @@ function [labels,labelMap] = refine_clusters( X,labels,varargin )
                     X_kj = concatenateSpikes( X(:,[pts_k,pts_j],:) );
                 end
 
-                % try merging the clusters and update the labelMap if we do
-                % although we're calling "try_cluster_split", we only extract
+                % Try merging the clusters and update the labelMap if we do.
+                % Although we're calling "try_cluster_split", we only extract
                 % the chisqStat and pval from the merged chi-square test, and 
                 % can use this to see if the merged data follow a chi-squared
                 % distribution around their mean
-                [~,stat,p] = try_cluster_split( X_kj,nDim );
-                %if numel( unique( tempLabels ) ) == 1
+                [~,~,p] = try_cluster_split( X_kj,nDim );
                 if p >= 0.1
                     merged([k,j]) = true;
 
