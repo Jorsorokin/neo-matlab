@@ -37,7 +37,7 @@ function mteSignals = MTEO( X,varargin )
 % check inputs
 kStart = 1;
 kMax = 6;
-if nargin >= 2 && ~isempty( varargin{1} );
+if nargin >= 2 && ~isempty( varargin{1} )
     kStart = varargin{1};
 end
 if nargin >= 3 && ~isempty( varargin{2} )

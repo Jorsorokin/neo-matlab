@@ -33,7 +33,7 @@ function [labels,labelMap] = refine_clusters( X,labels,varargin )
     
     
     % check inputs
-    if nargin > 2 && ~isempty( varargin{1} ) && ~any( isnan( varargin{1} ) )
+    if nargin > 2 && ~isempty( varargin{1} ) && ~any( nnz( isnan( varargin{1} ) ) )
         mask = varargin{1};
     else
         mask = [];

@@ -1,5 +1,45 @@
 classdef Spikes < Container
-    
+    % self = Spikes( times,snips,fs )
+    %
+    % Create an instance of the Spikes class.
+    % A Spikes object contains the spike times (in seconds)
+    % and voltage waveforms of an extracellularly-recorded
+    % neuron. 
+    %
+    % The Spikes object references a parent Neuron and Epoch
+    % instance, each of which can be used to extract the 
+    % spike times/voltages. Moreover, each Neuron object can 
+    % extract multiple Spikes objects as a way to facilitate
+    % trial (Epoch)-averaged analysis. 
+    %
+    % Children:
+    %   none
+    %
+    % Parents:
+    %   Neuron
+    %   Epoch
+    %
+    % Properties:
+    %   epoch - the parent Epoch number
+    %   unitID - the parent Neuron ID
+    %   chanInd - the associated ChannelIndex
+    %   timeUnits - the units of the spike times (default = 's' for seconds)
+    %   voltUnits - the units of the spike snips (default = 'uV')
+    %   fs - the sampling rate of the spike snips
+    %   times - the actual spike times
+    %   voltage - an n x m x c matrix of spike snips (n = points, m = # of spikes, c = channels)
+    %   nSpikes - the total number of spikes
+    %   nChan - number of channels associated with this spike (i.e. those in the associated ChannelIndex)
+    %   mask - a sparse matrix with 0 <= (i,j) <= 1, indicating the ith channels that detected each jth spikes 
+    %          (see function "double_flood_fill.m")
+    %
+    % Methods:
+    %   plot
+    %   smooth
+    %   svdDenoise
+    %
+    %       * see also methods in the Container object
+
     properties
         epoch = NaN;
         unitID = NaN;
@@ -17,46 +57,6 @@ classdef Spikes < Container
     methods
         
         function self = Spikes( times,snips,fs )
-            % self = Spikes( times,snips,fs )
-            %
-            % Create an instance of the Spikes class.
-            % A Spikes object contains the spike times (in seconds)
-            % and voltage waveforms of an extracellularly-recorded
-            % neuron. 
-            %
-            % The Spikes object references a parent Neuron and Epoch
-            % instance, each of which can be used to extract the 
-            % spike times/voltages. Moreover, each Neuron object can 
-            % extract multiple Spikes objects as a way to facilitate
-            % trial (Epoch)-averaged analysis. 
-            %
-            % Children:
-            %   none
-            %
-            % Parents:
-            %   Neuron
-            %   Epoch
-            %
-            % Properties:
-            %   epoch - the parent Epoch number
-            %   unitID - the parent Neuron ID
-            %   chanInd - the associated ChannelIndex
-            %   timeUnits - the units of the spike times (default = 's' for seconds)
-            %   voltUnits - the units of the spike snips (default = 'uV')
-            %   fs - the sampling rate of the spike snips
-            %   times - the actual spike times
-            %   voltage - an n x m x c matrix of spike snips (n = points, m = # of spikes, c = channels)
-            %   nSpikes - the total number of spikes
-            %   nChan - number of channels associated with this spike (i.e. those in the associated ChannelIndex)
-            %   mask - a sparse matrix with 0 <= (i,j) <= 1, indicating the ith channels that detected each jth spikes 
-            %          (see function "double_flood_fill.m")
-            %
-            % Methods:
-            %   plot
-            %   smooth
-            %   denoise
-            %
-            %       * see also methods in the Container object
 
             self.times = times;
             self.voltage = snips;

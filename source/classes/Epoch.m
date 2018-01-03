@@ -1,5 +1,52 @@
 classdef Epoch < Container
-    
+    % self = Epoch( startTime,stopTime,epochNum )
+    %
+    % Initiate an instance of the Epoch class. 
+    % An Epoch contains the starting and ending time
+    % of a specific segment of data during a recording 
+    % session (although this definition can be extended 
+    % as a specific pair of times to hold any segment of data,
+    % not specifically from just one recording session).
+    %
+    % The main purpose of the Epoch is to organize data into 
+    % time-delimited events, each of which can refer to a specific
+    % set of channels. The "epochs" can be anything with a starting 
+    % and ending time in your recording. This makes accessing 
+    % specific data based on a subset of channels across epochs
+    % extremely easy, and helps organize analysis centered on
+    % trial-averaging such as peri-stimulus time histograms (PSTHs).
+    %
+    % You can add a specific "eventTime" after initiating the Epoch 
+    % object, which refers to a single point in time. This could be 
+    % useful, for instance, for extracting a window of time
+    % (the epoch) surrounding some stimulus (the event)
+    %
+    % Children:
+    %   Signals 
+    %   Spikes 
+    %          
+    % Parents:
+    %   Block 
+    %
+    % Properties:
+    %   startTime - starting time of the epoch
+    %   stopTime - ending time of the epoch
+    %   duration - total duration
+    %   eventTime - start time of an event within the epoch
+    %   nSignals - number of channels contained in this epoch
+    %   nSpikes - number of action potentials detected in this epoch across all channels
+    %   name - user-defined name to give to this epoch
+    %
+    % Methods:
+    %   addEvent
+    %   car (common average reference)
+    %   rmMovement
+    %   rmRedundantSpikes
+    %   plotSignals
+    %   stateSpace
+    %   
+    %       * see also methods in the Container class   
+
     properties
         startTime
         stopTime
@@ -14,54 +61,6 @@ classdef Epoch < Container
     methods
         
         function self = Epoch( startTime,stopTime,epochNum )
-            % self = Epoch( startTime,stopTime,epochNum )
-            %
-            % Initiate an instance of the Epoch class. 
-            % An Epoch contains the starting and ending time
-            % of a specific segment of data during a recording 
-            % session (although this definition can be extended 
-            % as a specific pair of times to hold any segment of data,
-            % not specifically from just one recording session).
-            %
-            % The main purpose of the Epoch is to organize data into 
-            % time-delimited events, each of which can refer to a specific
-            % set of channels. The "epochs" can be anything with a starting 
-            % and ending time in your recording. This makes accessing 
-            % specific data based on a subset of channels across epochs
-            % extremely easy, and helps organize analysis centered on
-            % trial-averaging such as peri-stimulus time histograms (PSTHs).
-            %
-            % You can add a specific "eventTime" after initiating the Epoch 
-            % object, which refers to a single point in time. This could be 
-            % useful, for instance, for extracting a window of time
-            % (the epoch) surrounding some stimulus (the event)
-            %
-            % Children:
-            %   Signals 
-            %   Spikes 
-            %          
-            % Parents:
-            %   Block 
-            %
-            % Properties:
-            %   startTime - starting time of the epoch
-            %   stopTime - ending time of the epoch
-            %   duration - total duration
-            %   eventTime - start time of an event within the epoch
-            %   nSignals - number of channels contained in this epoch
-            %   nSpikes - number of action potentials detected in this epoch across all channels
-            %   name - user-defined name to give to this epoch
-            %
-            % Methods:
-            %   addEvent
-            %   car (common average reference)
-            %   rmMovement
-            %   rmRedundantSpikes
-            %   plotSignals
-            %   stateSpace
-            %   
-            %       * see also methods in the Container class
-
             self.startTime = startTime;
             self.stopTime = stopTime;
             self.duration = stopTime - startTime;
@@ -80,7 +79,7 @@ classdef Epoch < Container
                 case 'Signal'
                     self.nSignals = self.nSignals + numel( child );
                 case 'Spikes'
-                    self.nSpikes = self.nSpikes + [child.nSpikes];
+                    self.nSpikes = self.nSpikes + sum( [child.nSpikes] );
             end
             addChild@Container( self,child );
             for j = 1:numel( child )
@@ -425,7 +424,7 @@ classdef Epoch < Container
 
 
         function [projections,rate,kernel] = stateSpace( self,varargin )
-            % [projections,rate,kernel] = stateSpace( self, (kernel,start,stop) )
+            % [projections,rate,kernel] = stateSpace( self,(kernel,start,stop,nDim) )
             %
             % compute the firing rate of the spikes associated with this Epoch
             % and (assuming each spike train is from an isolated neuron)
@@ -453,11 +452,16 @@ classdef Epoch < Container
             else
                 stop = self.duration;
             end
-
+            if nargin > 4 && ~isempty( varargin{4} )
+                nDim = varargin{4};
+            else
+                nDim = 3;
+            end
 
             % estimate the kernel
-            % TO DO
-            %   To be filled in ...
+            if findKernel
+                % TO DO
+            end
 
             % normalize the kernel
             kernel = kernel / norm( kernel );
@@ -494,7 +498,7 @@ classdef Epoch < Container
 
             % project the spike rates onto their PCs 
             [u,s] = svd( rate' );
-            PCs = u(:,1:3) * s(1:3,1:3);
+            PCs = u(:,1:nDim) * s(1:nDim,1:nDim);
             projections = rate * PCs;
         end
         

@@ -167,23 +167,23 @@ for j = 1:numSegs
         % pull out the spike waveform
         thisSpike = seg(:,closestPt-preSamples*2:closestPt+postSamples*2-1)';
         
-        % skip if in general this is an artifact
-        if any( abs( thisSpike ) >= p.artifact )
+        % skip if this is an artifact
+        if any( any( abs( thisSpike ) >= p.artifact ) | (any( thisSpike ) > p.artifact/2) )
             continue
         end
         
         % skip this point if another channel in the connected component
         % has a large deflection within the pre/post time of this spike
-        %       i.e. overlapping spikes from a different component
+        %       i.e. overlapping spikes
         if any( abs( thisSpike(preSamples:preSamples+postSamples,ch) ) > max( abs( psi ) ) ) 
             continue
         end
         
         % skip if points not within the psi-range of the connected
         % components have deflection greter than beta
-        if any( thisSpike([1:preSamples,preSamples*2+postSamples:end],ch) < -beta )
-            continue
-        end
+       % if any( thisSpike([1:preSamples,preSamples*2+postSamples:end],ch) < -beta )
+       %     continue
+       % end
         
         % add to our "spikes" matrix and update spike times and mask
         spikes(:,counter,p.chanMap) = thisSpike; % back into original channel order as supplied
@@ -197,7 +197,7 @@ for j = 1:numSegs
     % extract less data before/after this point than the original data
     snips{j} = interpolate_spikes( spikes,fs,(sptimes{j}-round( sptimes{j} ))/fs + preTime*2,...
                                         preTime,postTime,0.6,1 ); % 1x interpolation with slight smoothing
-    sptimes{j}(:) = (sptimes{j} + start(j) - 1); % to make relative to the start of "data", not "seg"
+    sptimes{j} = (sptimes{j} + start(j) - 1); % to make relative to the start of "data", not "seg"
 
     % finally, remove any nan's in our matrices
     badInds = isnan( sptimes{j} );

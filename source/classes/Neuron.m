@@ -1,4 +1,58 @@
 classdef Neuron < Container
+    % self = Neuron( ID )
+    %
+    % Create an instance of the Neuron class. 
+    % A Neuron object refers to an identified and 
+    % isolated Neuron after sorting voltage AP waveforms
+    % detected from a Signal object. 
+    % 
+    % Each Neuron has a unique identifier specific to its parent
+    % ChannelIndex that separates it and its spike times/waveforms 
+    % from other Neurons within that parent ChannelIndex.
+    % It can have multiple Spikes objects as children, each of which 
+    % represents an Epoch from which APs belonging to the Neuron 
+    % were detected.
+    %
+    % Children:
+    %   Spikes
+    %
+    % Parents:
+    %   ChannelIndex
+    %
+    % Properties:
+    %   ID - the unique ID for this Neuron in this ChannelIndex group
+    %   chanInd - the parent ChannelIndex number
+    %   nSpikes - number of spikes across all Epochs
+    %   nChan - the number of channels from which this Neuron was detected
+    %   features - the n x m matrix of features used when sorting. 
+    %              If no sorting has occured (or if the ID = 0 and 
+    %              multiple re-sorts occurred), this equals "NaN"
+    %   probabilities - the probabilities assigned to each spike of 
+    %                   this Neuron to other cluster centers when sorting    
+    %   sortModel - a structure containing the mean (mu),
+    %               covariances (sigma) of theis neuron's cluster of spikes 
+    %   projMatrix - the projection matrix used for the
+    %                low-dimensional representation of the spikes
+    %   featureMethod - the method used for computing "features" 
+    %                   (i.e. kPCA, ICA, NPE ...)
+    %   meanWaveform - average spike waveform of all spike children
+    %   bestElectrode - the electrode with the largest voltage deflection
+    %                   of the meanWaveform
+    %   location - the physical distance of the bestElectrode
+    %   region - the brain region from which this neuron was recorded
+    %
+    % Methods:
+    %   getSpikes
+    %   plotSpikes
+    %   raster
+    %   psth
+    %   getISI
+    %   plotISI
+    %   estimateKernel
+    %   firingRate
+    %   plotFeatures
+    %   
+    %       * see also methods in the Container class
     
     properties
         ID
@@ -11,61 +65,15 @@ classdef Neuron < Container
         featureMethod = NaN;
         sortModel = struct( 'mu',[],'Sigma',[] );
         projMatrix = nan;
+        meanWaveform
+        bestElectrode
+        location
+        region
     end
     
     methods
         
         function self = Neuron( ID )
-            % self = Neuron( ID )
-            %
-            % Create an instance of the Neuron class. 
-            % A Neuron object refers to an identified and 
-            % isolated Neuron after sorting voltage AP waveforms
-            % detected from a Signal object. 
-            % 
-            % Each Neuron has a unique identifier specific to its parent
-            % ChannelIndex that separates it and its spike times/waveforms 
-            % from other Neurons within that parent ChannelIndex.
-            % It can have multiple Spikes objects as children, each of which 
-            % represents an Epoch from which APs belonging to the Neuron 
-            % were detected.
-            %
-            % Children:
-            %   Spikes
-            %
-            % Parents:
-            %   ChannelIndex
-            %
-            % Properties:
-            %   ID - the unique ID for this Neuron in this ChannelIndex group
-            %   chanInd - the parent ChannelIndex number
-            %   nSpikes - number of spikes across all Epochs
-            %   nChan - the number of channels from which this Neuron was detected
-            %   features - the n x m matrix of features used when sorting. 
-            %              If no sorting has occured (or if the ID = 0 and 
-            %              multiple re-sorts occurred), this equals "NaN"
-            %   probabilities - the probabilities assigned to each spike of 
-            %                   this Neuron to other cluster centers when sorting    
-            %   sortModel - a structure containing the mean (mu),
-            %               covariances (sigma) of theis neuron's cluster of spikes 
-            %   projMatrix - the projection matrix used for the
-            %                low-dimensional representation of the spikes
-            %   featureMethod - the method used for computing "features" 
-            %                   (i.e. kPCA, ICA, NPE ...)
-            %
-            % Methods:
-            %   getSpikes
-            %   plotSpikes
-            %   raster
-            %   psth
-            %   getISI
-            %   plotISI
-            %   estimateKernel
-            %   firingRate
-            %   plotFeatures
-            %   
-            %       * see also methods in the Container class
-
             self.ID = ID;
         end
         
@@ -74,11 +82,14 @@ classdef Neuron < Container
             switch class( child )
                 case 'Spikes'
                     addChild@Container( self,child );
+                    self.nSpikes = sum( [child.nSpikes] );
+                    meanVolt = zeros( size( child(1).voltage,1 ),size( child(1).voltage,3 ) );
                     for j = 1:numel( child )
-                        self.nSpikes = self.nSpikes + child(j).nSpikes;
                         child(j).unitID = self.ID;
                         child(j).chanInd = self.chanInd;
+                        meanVolt = meanVolt + squeeze( mean( child(j).voltage,2 ) );
                     end
+                    self.meanWaveform = meanVolt / j;
                 otherwise
                     error( 'Only Spikes objects are valid children' );
             end
@@ -90,7 +101,7 @@ classdef Neuron < Container
                 case 'ChannelIndex'
                     addParent@Container( self,parent );
                     self.chanInd = parent.chanIndNum; 
-                    self.nChan = parent.nChans;
+                    self.nChan = parent.nElectrodes;
                 otherwise
                     error( 'Only ChannelIndex objects are valid parents' );
             end
@@ -210,7 +221,7 @@ classdef Neuron < Container
            
         
         function plotISI( self,varargin )
-            % plotISI( self,(bw) )
+            % plotISI( self,(epochs,bw) )
             %
             % plot the inter-spike-interval (ISI) histogram for all spikes
             % contained in this Neuron. Optionally specify a bin width (in
@@ -218,11 +229,17 @@ classdef Neuron < Container
             
             % check input
             if nargin > 1
-                bw = varargin{1};
+                epochs = varargin{1};
+            else
+                epochs = 1:numel( self.children{1} );
+            end
+            
+            if nargin > 2
+                bw = varargin{2};
             end
                 
             % get the ISI
-            ISI = self.getISI();
+            ISI = self.getISI( epochs );
             
             % reshape the matrix
             [n,m] = size( ISI );
@@ -236,7 +253,7 @@ classdef Neuron < Container
             else
                 [N,edges] = histcounts( ISI,'Normalization','countdensity' );
             end
-            s = stairs( edges(1:end-1),N );
+            s = stairs( edges(2:end),N );
             set( s,'color',[0.85 0.85 0.85] );
             ylabel( 'count / bin width' );
             xlabel( 'ISI (s)' );
@@ -244,8 +261,8 @@ classdef Neuron < Container
         end
                 
         
-        function raster( self,start,pre,post )
-            % raster( self,start,pre,post );
+        function raster( self,start,pre,post,varargin )
+            % raster( self,start,pre,post,(epochs) );
             %
             % make a raster plot of the spikes across epochs associated
             % with this Neuron. Must provide "start", "pre", and "post"
@@ -253,8 +270,15 @@ classdef Neuron < Container
             % Neuron. Assumes the trials (epochs) are aligned for
             % meaningful results
             
+            % check for epochs
+            if nargin > 4
+                epochs = varargin{1};
+            else
+                epochs = 1:numel( self.children{1} );
+            end
+
             % pull out the spike times across epochs
-            [~,sptm,~] = self.getSpikes(); 
+            [~,sptm,~] = self.getSpikes( epochs ); 
             
             % plot the raster according to the pre/post time and starting
             % time provided
@@ -264,8 +288,8 @@ classdef Neuron < Container
         end
         
         
-        function [count,avgCount,sigma] = psth( self,start,pre,post,varargin )
-            % [count,avgCount,sigma] = psth( self,start,pre,post,(bw) )
+        function [count,avgCount,sigma,time] = psth( self,start,pre,post,varargin )
+            % [count,avgCount,sigma,time] = psth( self,start,pre,post,(bw,epochs) )
             %
             % compute the peri-stimulus time histogram (PSTH) from the
             % Neuron object across all epochs. Output is the bin-count
@@ -273,30 +297,60 @@ classdef Neuron < Container
             % trials (sigma)
             
             % check for bin width input
-            if nargin > 4 && ~isempty( varargin )
+            if nargin > 4 && ~isempty( varargin{1} )
                 bw = varargin{1};
             else 
                 bw = [];
             end
+
+            if nargin > 5 && ~isempty( varargin{2} )
+                epochs = varargin{2};
+            else
+                epochs = 1:numel( self.children{1} );
+            end
             
             % pull out spike times
-            [~,sptm,~] = self.getSpikes();
+            [~,sptm,~] = self.getSpikes( epochs );
             
             % compute the PSTH
             [count,avgCount,sigma] = CalculatePSTH( sptm,start,pre,post,bw );
+            time = linspace( start-pre,start+post,numel( avgCount ) );
         end
 
 
-        function [width,sigma,kernel] = estimateKernel( self )
-            % [width,sigma,kernel] = estimateGaussKernel( self )
+        function [sigma,kernel] = estimateKernel( self,varargin )
+            % [sigma,kernel] = estimateKernel( self,(t,epochs) )
             %
-            % estimate the appropriate width and sigma for the gaussian kernel
+            % estimate the best sigma for a gaussian kernel
             % for convolving spike times to compute a firing rate.
+            % Can optionally supply the times from which to sample 
+            % the spike-time vectors when estimating the kernel, as well as
+            % which epochs to estimate the kernel from
             
-            width = nan;
-            sigma = nan;
+            if nargin > 1 && ~isempty( varargin{1} )
+                t = varargin{1};
+            else
+                t = [];
+            end
+
+            if nargin > 2 && ~isempty( varargin{2} )
+                epochs = varargin{2};
+            else
+                epochs = 1:numel( self.children{1} );
+            end
+
+            % get spike times
+            [~,sptimes] = self.getSpikes( epochs );
+
+            % compute the kernel / sigma
+            if isempty( t )
+                [~,~,sigma] = sskernel( sptimes );
+            else
+                [~,~,sigma] = sskernel( sptimes,t );
+            end
+
+            % TO DO: create the kernel
             kernel = nan;
-            
         end
 
 
@@ -309,7 +363,7 @@ classdef Neuron < Container
             % 
             % "rate" will be an n x m matrix, where n = total number of 
             % points of the maximum duration of all Epochs, and m = number 
-            % of Epochs. 
+            % of Epochs total in block
             
             % check for spikes
             spikes = self.getChild( 'Spikes' );
@@ -323,16 +377,17 @@ classdef Neuron < Container
 
             % get the Epoch parents of the Spikes and Signal children of the ChannelIndex
             epochs = self.getPartner( 'Epoch','Spikes' );
-            signals = self.getSibling( 'Signal','ChannelIndex' );
+            electrode = self.getParent( 'ChannelIndex' ).getChild( 'Electrode',1 );
+            fs = [electrode.getChild( 'Signal' ).fs];
             duration = [epochs.duration]; 
-            npoints = ceil( duration .* [signals.fs] ); 
+            npoints = ceil( duration .* fs ); 
 
             % pre-allocate our firing-rate matrix based on max number of points
             rate = zeros( max( npoints ),nSp ); 
 
             % loop over the Spikes children, extract the spike times
             for ep = 1:nSp
-                sptm = round( spikes(ep).times * signals(ep).fs );
+                sptm = round( spikes(ep).times * fs(ep) );
                 rate(sptm,ep) = 1;
             end
 
@@ -342,7 +397,7 @@ classdef Neuron < Container
 
                
         function plotFeatures( self )
-            % plotFeatures( self,column1,column2 )
+            % plotFeatures( self )
             %
             % plots a gplotmatrix of the columns of "features"
             % specified by the inputs "columns1" and "column2".
@@ -356,6 +411,7 @@ classdef Neuron < Container
             for j = 1:size( self.features,2 )
                 axlabel{j} = sprintf( 'feature %i',j );
             end
+
             figure;
             gplotmatrix( self.features,[],[],'k',[],3,[],[],axlabel );
             chind = self.getParent( 'ChannelIndex' );
@@ -363,6 +419,7 @@ classdef Neuron < Container
             if isempty( name )
                 name = ['channelindex ',num2str(chind.chanIndNum)];
             end
+            
             suptitle( sprintf( 'neuron %i, from %s',self.ID,name ) );
         end
 

@@ -33,7 +33,7 @@ classdef Block < Container
     %   update
     %   write
     %   getNeurons
-    %   createClusterModel
+    %   undoSorting
     %
     %       * see also methods in the Container class
     
@@ -124,6 +124,7 @@ classdef Block < Container
                     electrodeID = [chanElectrodes.electrodeNum];
                     chanind(j).nElectrodes = numel( electrodeID );
                     chanind(j).chanIDs = electrodeID; % the actual electrode IDs 
+                    chanind(j).nUnits = numel( chanind(j).getChild( 'Neuron' ) );
                 end
             end
             self.nChanInds = numel( chanind );
@@ -191,7 +192,7 @@ classdef Block < Container
                                 if isempty( spikes(sp).getParent( 'Neuron' ) )
                                     spikes(sp).deleteSelf(); 
                                 else
-                                    spikes(sp).nSpikes = size( spikes(sp).voltage,2 );
+                                    spikes(sp).nSpikes = numel( spikes(sp).times );
                                 end
                             end
                             spikes(~isvalid( spikes )) = [];
@@ -258,14 +259,59 @@ classdef Block < Container
         end
         
         
-        function createClusterModel( self )
-           % createClusterModel( self )
-           %
-           % creates a clustering model for each ChannelIndex child
-           % using a subset of spikes associated with that ChannelIndex,
-           % then saves the clustering model into the corresponding 
-           % ChannelIndex into the "model" property
+        function undoSorting( self )
+            % undoSorting( self )
+            %
+            % re-merge all spike objects and Neurons,
+            % undoing results of a previous sorting
+                       
+            epoch = self.getChild( 'Epoch' );
             
+            for ep = 1:self.nEpochs
+                spikes = epoch(ep).getChild('Spikes');
+                epoch(ep).removeChild( 'Spikes' );
+                epoch(ep).nSpikes = 0;
+                
+                chanIndNum = zeros( 1,numel( spikes ) );
+                for sp = 1:numel( spikes )
+                    chanIndNum(sp) = spikes(sp).getParent( 'Neuron' ).chanInd;
+                end
+                
+                % get the voltage waveforms / times / mask
+                for ch = 1:numel( unique( chanIndNum ) )
+                    thisChanInd = chanIndNum == ch;
+                    oldSpikes = spikes(thisChanInd);
+                    newSpikes = Spikes( [oldSpikes.times],[oldSpikes.voltage],oldSpikes(1).fs );
+                    [newSpikes.times,idx] = sort( newSpikes.times );
+                    if ~isempty( newSpikes.voltage )
+                        newSpikes.voltage = newSpikes.voltage(:,idx,:);
+                    end
+                    newSpikes.mask = [oldSpikes.mask];
+                    if ~isempty( newSpikes.mask )
+                        newSpikes.mask = newSpikes.mask(:,idx);
+                    end
+                    newSpikes.chanInd = ch;
+                    
+                    epoch(ep).addChild( newSpikes );
+                end
+                clear spikes newSpikes oldSpikes
+            end
+            
+            for ch = 1:self.nChanInds
+                chan = self.getChild( 'ChannelIndex',ch );
+                chan.removeChild( 'Neuron' );
+                neuron = Neuron( 0 );
+                
+                for ep = 1:numel( epoch )
+                    allSpikes = epoch(ep).getChild( 'Spikes' );
+                    neuron.addChild( allSpikes.findobj( 'chanInd',ch ) );
+                end
+                
+                chan.addChild( neuron );
+                clear neuron
+            end
+    
+            self.update;
         end
                 
     end % methods

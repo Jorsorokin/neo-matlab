@@ -1,5 +1,5 @@
 function [features,W,mapping] = compute_spike_features( X,varargin )
-% [features,mapping,mapping] = compute_spike_features( X,(ndim,method,mask,distances,concatenate) )
+% [features,W,mapping] = compute_spike_features( X,(ndim,method,mask,distances,concatenate) )
 %
 % wrapper for "compute_mapping.m" to extend the mapping method to ICA and
 % to to take masking matrices and channel maps into account
@@ -158,6 +158,9 @@ else
 end
 
 % add distances
+if isfield( mapping,'conn_comp' ) && ~isempty( E_spikeXY )
+    E_spikeXY = E_spikeXY(mapping.conn_comp,:);
+end
 features = [features,E_spikeXY];
 
 % normalize the features

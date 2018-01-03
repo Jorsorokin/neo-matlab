@@ -1,7 +1,7 @@
 function [labels,model] = sort_clusters( X,K,method,varargin )
 % function [labels,model] = sort_clusters( X,K,method,varargin )
 %
-% sort the projected data "X" using the specified clustering method
+% sort the data "X" using the specified clustering method
 % 
 % Inputs:
 %   X - n x d matrix, n = observations, d = dimensions

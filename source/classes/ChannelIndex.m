@@ -1,4 +1,51 @@
 classdef ChannelIndex < Container
+    % self = ChannelIndex( chanIndNum )
+    %
+    % Initiate an instance of the ChannelIndex class.
+    % A ChannelIndex object contains a reference to a set of
+    % channels and their actual IDs (not necessarily the 
+    % the indices of the channels) that are intended as a group.
+    % For instance, a tetrode can be organized as a ChannelIndex
+    % object with four channels. 
+    %
+    % The ChannelIndex is intended to facilitate the organization
+    % of recorded signals and spikes to easily extract such signals
+    % separately for each group of channels across Epochs. It also
+    % maintains a running count of the number of Neuron objects contained
+    % within the group of channels over the recording session.
+    %
+    % Children:
+    %   Electrode
+    %   Neuron
+    %
+    % Parents:
+    %   Block
+    %
+    % Properties:
+    %   channels - the indices from the list of all Electrodes (i.e.
+    %              block.getChild( 'Electrode' ) )
+    %   chanIDs - the actual Electrode IDs from the recording
+    %   chanMap - a 1 x self.nElectrodes vector specifying any corrected ordering of electrodes 
+    %   chanDistances - an m x self.nElectrodes vector specifying the m-dimensional 
+    %                   distances of each electrode (i.e. (x,y), x-only, etc.)
+    %   chanIndNum - the unique number for this ChannelIndex object
+    %   nElectrodes - number of Electrode objects contained in this ChannelIndex
+    %   nSignals - number of raw Signals provided to this ChannelIndex
+    %   nUnits - number of Neurons provided to this ChannelIndex
+    %   name - user-defined name specific to this ChannelIndex 
+    %          (i.e. tetrode1, stereotrode3, etc.)
+    %
+    % Methods:
+    %   getSignals
+    %   waveDenoise
+    %   detectSpikes
+    %   sortSpikes
+    %   plotSpikes
+    %   plotFeatures
+    %   mergeNeurons
+    %   splitNeurons
+    %
+    %       * see also methods in the Container class
     
     properties 
         chanIDs = [];
@@ -15,54 +62,7 @@ classdef ChannelIndex < Container
     methods
         
         function self = ChannelIndex( chanIndNum )
-            % self = ChannelIndex( chanIndNum )
-            %
-            % Initiate an instance of the ChannelIndex class.
-            % A ChannelIndex object contains a reference to a set of
-            % channels and their actual IDs (not necessarily the 
-            % the indices of the channels) that are intended as a group.
-            % For instance, a tetrode can be organized as a ChannelIndex
-            % object with four channels. 
-            %
-            % The ChannelIndex is intended to facilitate the organization
-            % of recorded signals and spikes to easily extract such signals
-            % separately for each group of channels across Epochs. It also
-            % maintains a running count of the number of Neuron objects contained
-            % within the group of channels over the recording session.
-            %
-            % Children:
-            %   Electrode
-            %   Neuron
-            %
-            % Parents:
-            %   Block
-            %
-            % Properties:
-            %   channels - the indices from the list of all Electrodes (i.e.
-            %              block.getChild( 'Electrode' ) )
-            %   chanIDs - the actual Electrode IDs from the recording
-            %   chanMap - a 1 x self.nElectrodes vector specifying any corrected ordering of electrodes 
-            %   chanDistances - an m x self.nElectrodes vector specifying the m-dimensional 
-            %                   distances of each electrode (i.e. (x,y), x-only, etc.)
-            %   chanIndNum - the unique number for this ChannelIndex object
-            %   nElectrodes - number of Electrode objects contained in this ChannelIndex
-            %   nSignals - number of raw Signals provided to this ChannelIndex
-            %   nUnits - number of Neurons provided to this ChannelIndex
-            %   name - user-defined name specific to this ChannelIndex 
-            %          (i.e. tetrode1, stereotrode3, etc.)
-            %
-            % Methods:
-            %   getSignals
-            %   waveDenoise
-            %   detectSpikes
-            %   sortSpikes
-            %   sortSpikes_fromModel
-            %   sortGUI
-            %   plotSpikes
-            %   plotFeatures
-            %   mergeNeurons
-            %
-            %       * see also methods in the Container class
+            % initiate the ChannelIndex object
             
             self.chanIndNum = chanIndNum;
         end
@@ -217,13 +217,13 @@ classdef ChannelIndex < Container
             electrodes = self.getChild( 'Electrode' );
             if isempty( electrodes )
                 disp( 'No electrode(s) available' );
-                return;
+                return
             end
 
             % pull out the actual Signals & the total Epochs/Electrodes
             signals = [];
-            for j = self.nElectrodes:-1:1
-                signals = [electrodes(j).getChild( 'Signal' ),signals]; % negative indexing for performance
+            for j = 1:self.nElectrodes
+                signals = [signals,electrodes(j).getChild( 'Signal' )]; 
             end
 
             % get their epochs 
@@ -243,6 +243,7 @@ classdef ChannelIndex < Container
             % Spike Detection
             % ==================================================================
             fprintf( 'Detecting spikes across epochs' )
+
             for ep = 1:numel( uniqueEpochs )
                 fprintf( '.' );
                 
@@ -256,7 +257,7 @@ classdef ChannelIndex < Container
                     [sptm,spsnip] = detectSpikes( volt,fs,thresh,1,artifact );
                     mask = [];
                 else
-                    maxPts = floor( 0.0025 * fs ); % anything > 2.5ms is an artifact or overlapping spike
+                    maxPts = floor( 0.001 * fs ); % anything > 1ms is an artifact or overlapping spike
                     maxChan = [];
 
                     % get channel distance matrix to find # of channels within 150um of one another
@@ -270,7 +271,7 @@ classdef ChannelIndex < Container
                 clear volt
                 
                 % create a "Spikes" object using the found spikes
-                Sp = Spikes( sptm/fs,single( spsnip ),fs );
+                Sp = Spikes( single( sptm/fs ),single( spsnip ),fs );
                 if nnz( mask ) / numel( mask ) <= 0.1
                     Sp.mask = sparse( mask ); % memory efficient if sparse enough
                 else
@@ -291,6 +292,7 @@ classdef ChannelIndex < Container
                     E.addChild( Sp ); % add the new spikes
                 end
             end
+            
             fprintf( '\n' );
             % ==================================================================
             
@@ -301,7 +303,7 @@ classdef ChannelIndex < Container
         
 
         function sortSpikes( self,varargin )
-            % sortSpikes( self,(projMethod,init,W,features,level,reject,search,neuronID,sortMethod) );
+            % sortSpikes( self,varargin );
             %
             % sort spikes referenced by the current ChannelIndex object. For each sorted
             % ID, create a new Neuron instance and store as a child under the
@@ -314,18 +316,26 @@ classdef ChannelIndex < Container
             % optional inputs:
             %   projMethod - the decomposition method (PCA,ICA,...)
             %   init - the initial cluster number 
-            %   W - previously-computed projection matrix
             %   features - previously computed features
-            %   level - the number of dims to keep
-            %   reject - the probability in which to reject spike i from cluster j
-            %   search - boolean flag indicating whether to search for cluster # 
+            %   level - the number of dims to keep (default = 5 )
+            %   reject - the outlier threshold for HDBSCAN (default = 0.9)
             %   neuronID - vector or scalar indicating which neurons to sort
             %   sortMethod - method for clustering
+            %   nNeighbors - # of points for nearest-neighbor calculation
+            %   eps - epsilon radius (for DBSCAN / HDBSCAN / Spectral )
+            %   minclustsize - minimum # of points in a cluster to keep
+            %                  that cluster
+            %   useGUI - boolean flag to use the sortTool GUI for sorting.
+            %            If true, an instance of the sortTool GUI will be
+            %            initiated, and the results of the sorting will be
+            %            automatically merged with this ChannelIndex object
             %   
             % EX:
-            %   self.spikeSort( 'method','pca','level',4,'reject',0.1 )
+            %   self.spikeSort( 'method','pca','level',4,'reject',0.8 )
             %
-            % refer to "spikesort.m" for more details
+            % refer to "sort_clusters.m" & "compute_spike_features.m" for
+            % more details, as well as the sortTool GUI documentation
+            
                 
             % check the optional inputs
             p = check_inputs( varargin );
@@ -374,37 +384,47 @@ classdef ChannelIndex < Container
                 mask = [mask,m];
                 clear t v ep m
             end           
-            fs = neurons(1).getChild( 'Spikes',1 ).fs;
             
             % Spike sorting
             % =============================================================
+            
+            % pull out spike features
+            if isempty( p.features )
+                [features,~,mapping] = compute_spike_features( spsnips,p.level,p.projMethod,...
+                                                            mask,self.chanDistances,1 );
+            else
+                features = p.features;
+                mapping = [];
+            end
+                                                    
+            % sort the features
+            [labels,model] = sort_clusters( features,p.init,p.sortMethod,...
+                        'mask',mask,'eps',p.eps,'neighbors',p.nNeighbors,...
+                        'minclustsize',p.minclustsize,'kernelWeighting',true,...
+                        outlierThresh,'p.reject' );
+            
+            % call an instance of the sortTool GUI if requested
+            if p.useGUI
+                [labels,features,model] = sortTool( 'data',single( spsnips ),'projection',single( features ),...
+                                                'times',single( sptm ),'mask',single( mask ),...
+                                                'trials',single( epochnum ) );
+                p.projMethod = model.projMethod;
+                mapping = model.mapping;
+            end
 
-            % === TEST === 
-            %[id,Params] = spikesort( spsnips(:,1:2000,:),fs,'init',20,...
-            %     'method','PCA','search',1,'level',3,'mask',mask(:,1:2000),...
-            %     'distances',self.chanDistances );
-            % ============
-                
-            [id,Params] = spikesort( spsnips,fs,...
-                'init',p.init,'method',p.projMethod,'distances',self.chanDistances,...
-                'search',p.search,'level',p.level,'reject',p.reject,...
-                'mapping',p.W,'features',p.features,'mask',mask );
             % =============================================================
             
             % create our new neurons / eliminate old ones
-            self.create_new_neurons( spsnips,sptm,epochnum,p.neuronID,id,...
-                Params.features,Params.prob,Params.featMethod,...
-                Params.model,Params.mapping,mask );
-            
-            % update the sorting Params 
-            %self.sortModel = Params.model; % how to update rather than replace? 
-            %self.projMatrix = Params.mapping;
+            self.create_new_neurons( spsnips,sptm,epochnum,p.neuronID,labels,...
+                features,model.probabilities,p.projMethod,...
+                model.sortModel,mapping,mask );
             
             % HELPER FUNCTION
             function p = check_inputs( inputs )
-                pnames = {'projMethod','init','search','level','reject',...
-                    'W','features','neuronID','sortMethod'};
-                defaults = {'PCA',2,false,5,.1,nan,nan,nan,'EM-GMM'};
+                pnames = {'projMethod','init','level','reject',...
+                    'features','neuronID','sortMethod','nNeighbors',...
+                    'eps','minclustsize'};
+                defaults = {'PCA',2,5,.9,[],[],'EM-GMM',5,0.1,5};
 
                 p = inputParser;             
                 for j = 1:numel(pnames)
@@ -430,25 +450,24 @@ classdef ChannelIndex < Container
             % channelindex object
             neurons = self.getChild( 'Neuron' );
             if isempty( neurons )
-                error( 'No Neuron objects found' );
+                disp( 'No Neuron objects found' );
+                return
             end
+            
             IDs = [neurons.ID];
             if ~all( ismember( neuronIDs,IDs) )
-                error( 'Some or all provided neuronIDs are not children of this ChannelIndex' );
+                disp( 'Some or all provided neuronIDs are not children of this ChannelIndex' );
+                return
             end
-                        
-            % get the IDs of all neurons within this Block
-            allIDs = [self.getParent( 'Block' ).getNeurons().ID];
             
-            % create a new Neuron with a temporary ID
-            newNeuron = Neuron( allIDs(end)+1 );
+            % create a new Neuron with the lowest ID of those being merged
+            newNeuron = Neuron( min( neuronIDs ) );
             
             % loop over neuronIDs, pull out old Spike children
             oldSpikes = [];
             features = [];
             for id = neuronIDs
-                oldInd = find( IDs==id,1 );
-                oldNeuron = neurons(oldInd);
+                oldNeuron = neurons.findobj( 'ID',id );
                 oldSpikes = [oldSpikes,oldNeuron.getChild( 'Spikes' )];
                 if ~isnan( oldNeuron.features )
                     features = vertcat( features,oldNeuron.features );
@@ -489,7 +508,7 @@ classdef ChannelIndex < Container
                         % create a new Spikes object with the concatenated
                         % voltages/spike times. Add the corresponding epoch
                         newSpikes(counter) = Spikes( sptm,volt,fs );
-                        newSpikes.mask = mask;
+                        newSpikes(counter).mask = mask;
                         if ~isempty( epoch )
                             newSpikes(counter).addParent( epoch );
                         end
@@ -530,85 +549,43 @@ classdef ChannelIndex < Container
             % update the block to re-establish consecutive neuron IDs
             self.getParent( 'Block' ).update();
         end
-
         
-        function sortGUI( self,varargin )
-            % sortGUI( self,(neuronIDs) )
+        
+        function splitNeuron( self,oldID,labels )
+            % splitNeuron( self,oldID,labels )
             %
-            % creates an instance of the sortTool.fig GUI for visualizing
-            % sorting results in better detail, and providing flexibility 
-            % regarding manual clustering and projection methods.
-            %
-            % By default, all spikes from all Neuron children of the current container
-            % will be fed into the sortTool GUI, however one can specify a 
-            % subset of neurons via the optional arugment "neuronID", which will 
-            % only provide the spike waveforms from Neurons with those IDs (for further sorting).
-            neurons = self.getChild( 'Neuron' );
-            if isempty( neurons )
-                disp( 'Must detect spikes first!' );
-                return
-            end
-
-            % check input
-            if nargin > 1 && ~isempty( varargin{1} )
-                neuronIDs = varargin{1};
-                neurons = neurons(ismember( [neurons.ID],neuronIDs ));
-            else
-                neuronIDs = [neurons.ID];
-            end
+            % splits a child Neuron object, specified by "oldID", into new 
+            % neurons by re-assigning spikes according to the provided
+            % label vector "labels"
             
-            % determine if any spikes with this ID exist
-            nNeurons = numel( neurons );
-            if nNeurons == 0
-                disp( 'No Neurons with provided IDs belong to this ChannelIndex' );
-                return
-            end
-
-            % determine if any electrodes added
-            if self.nElectrodes == 0
-                disp( 'Mismatch between # of electrodes among data objects' );
-                disp( 'Check your data heirarchy (try running "block.update()")' );
+            % get neuron children
+            if self.nUnits == 0
+                disp( 'ChannelIndex has no Neuron children!' );
                 return
             end
             
-            % get the spikes from these neurons
-            nSpikes = [neurons.nSpikes];
-            nPts = size( neurons(1).getChild( 'Spikes',1 ).voltage,1 );
-            spsnips = nan( nPts,sum( nSpikes ),self.nElectrodes );   % nPt x nSp x nCh matrix (spike waveforms)
-            sptimes = nan( sum( nSpikes ),1 );                       % nSp x 1 vector (spike times)
-            epoch = sptimes;                                         % nSp x 1 vector (parent epoch)
-            id = sptimes;                                            % nSp x 1 vector (class labels) 
-            mask = nan( self.nElectrodes,sum( nSpikes ) );           % nCh x nSp matrix (spike mask)
-            counter = 0;
-            for n = 1:nNeurons
-                inds = counter+1:counter+nSpikes(n);
-                [spsnips(:,inds,:),times,epoch(inds),m] = neurons(n).getSpikes();
-                if ~isempty( m )
-                    mask(:,inds) = m;
-                end
-                times = reshape( times,numel(times),1 );
-                times( isnan( times ) ) = [];
-                sptimes(inds) = times;
-                id(inds) = neurons(n).ID;
-                counter = counter + nSpikes(n);
-                clear times
+            % check if the specified neuron exists
+            oldNeuron = self.getChild( 'Neuron' ).findobj( 'ID',oldID );
+            if isempty( oldNeuron )
+                disp( 'No Neuron with specified ID found' );
+                return
             end
-
-            % initiate the sortTool GUI with the provided waveforms and labels
-            [newID,features,model] = sortTool( 'data',spsnips,...
-                'times',sptimes','trials',epoch','labels',id' );
-
-            % create new neurons / eliminate old
-            if max( newID ) > 0 
-               if numel( newID ) ~= numel( sptimes ) || any( ~ismember( newID,id ) )
-                    self.create_new_neurons( spsnips(:,model.keptPts,:),sptimes(model.keptPts),...
-                        epoch(model.keptPts),neuronIDs,newID,features,...
-                        model.probabilities,model.projectMethod,...
-                        model.sortModel,model.W,mask(:,model.keptPts) );
-                   % self.projMatrix = model.W;
-                   % self.sortModel = model.sortModel;
-               end
+            
+            % check if # of labels provided does not match the # of spikes
+            % associated with the old neuron
+            if oldNeuron.nSpikes ~= numel( labels )
+                disp( 'Number of provided labels does not match number of spikes in this Neuron' );
+                return
             end
+            
+            % get the spike snips / times of this neuron
+            [snips,sptimes,epochs,mask] = oldNeuron.getSpikes();
+            sptimes = reshape( sptimes,numel( sptimes ),1 );
+            sptimes(isnan( sptimes )) = [];
+            
+            % create the new neuron children given the labels / trials
+            self.create_new_neurons( snips,sptimes,epochs,oldID,labels,...
+                [],[],[],[],[],mask );
         end
         
         
@@ -697,7 +674,7 @@ classdef ChannelIndex < Container
                 end
             end
         end
-        
+              
     end % public methods
     
     
@@ -744,9 +721,13 @@ classdef ChannelIndex < Container
             end
             
             % get all Neuron children and Epoch partners
-            %allNeurons = self.getParent( 'Block' ).getNeurons();
             neurons = self.getChild( 'Neuron' );
-            epoch = self.getPartner( 'Epoch','Signal' );
+            changedNeurons = neurons.findobj( 'ID',prevNeuronID );
+            epoch = [];
+            for j = 1:numel( changedNeurons )
+                epoch = [epoch,changedNeurons(j).getPartner( 'Epoch','Spikes' )];
+            end
+            clear changedNeurons
             fs = epoch(1).getChild( 'Spikes',1 ).fs;
             
             % ============================================================
@@ -787,7 +768,7 @@ classdef ChannelIndex < Container
             
             % (e) remove the "Spikes" associated with a previously
             % sorted Neuron that is now resorted
-            mask = cell( 1,numel( epoch ) );
+            %mask = cell( 1,numel( epoch ) );
             for ep = 1:numel( epoch )
                 oldSpikes = epoch(ep).getChild( 'Spikes' );
                 if ~isempty( oldSpikes )
@@ -812,10 +793,15 @@ classdef ChannelIndex < Container
             % and Spikes objects across Epochs
             uID = unique( newID );
             counter = 0;
+            remainingNeurons = self.getChild( 'Neuron' );
+            if any( remainingNeurons )
+                currentIDs = [remainingNeurons.ID];
+            else
+                currentIDs = [];
+            end
             for i = uID
                 counter = counter+1;
                 thisID = (newID==i);
-                currentIDs = [self.getChild( 'Neuron' ).ID];
                 thisNeuron = ismember( currentIDs,i );
                 
                 % now add the new Spikes based on the sorting if a
@@ -825,10 +811,9 @@ classdef ChannelIndex < Container
                     % loop over epochs and create a new Spikes object. Add to
                     % it's appropriate epoch 
                    for ep = 1:numel( epoch )
-                        IDX = thisEpoch & thisID;
                         thisEpoch = ismember( trials,ep );
-                        Sp(ep) = Spikes( sptm(IDX),...
-                            spsnips(:,IDX,:),fs );
+                        IDX = thisEpoch & thisID;
+                        Sp(ep) = Spikes( sptm(IDX),spsnips(:,IDX,:),fs );
                         if ~isnan( mask )
                             Sp(ep).mask = mask(:,IDX);
                         end
@@ -841,14 +826,14 @@ classdef ChannelIndex < Container
                     newNeuron.addChild( Sp );
 
                     % add the sorting parameters specific to this neuron
-                    newNeuron.features = features(thisID,:);
-                    if any( ~isnan( prob ) ) % <-- fix this after fixing sortTool manual clust
+                    if ~isnan( features )
+                        newNeuron.features = features(thisID,:);
+                    end
+                    if any( ~isnan( prob ) ) 
                         newNeuron.probabilities = prob(thisID,:);
                     end
                     newNeuron.featureMethod = featureMethod;
-                    newNeuron.sortModel.mu = sortModel.mu(:,counter);
-                    newNeuron.sortModel.sigma = sortModel.Sigma(:,:,counter);
-                    newNeuron.sortModel.w = sortModel.w(counter);
+                    newNeuron.sortModel = sortModel;
                     newNeuron.projMatrix = projMatrix;
 
                     % add the neuron to the channelindex
