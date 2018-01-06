@@ -118,48 +118,7 @@ classdef ChannelIndex < Container
                 signals = [electrodes(j).getChild( 'Signal' ),signals]; % negative indexing for performance
             end
         end
-
-
-        function waveDenoise( self,wLevel,wType )
-            % waveDenoise( self,wLevel,wType )
-            %
-            % denoises the signals contained within all child Electrodes
-            % using multi-signal wavelet denoising.
-            % 
-            % wLevel equals the wavelet decomposition level desired (lower
-            % = less smoothing), and wType equals the wavelet to use.
-            %
-            % Note, this function will not work if the voltages contained within 
-            % the various "Signal" children across Electrodes have different 
-            % sampling rates and/or number of points. Thus, for each Epoch,
-            % one must ensure the voltages have not been filtered differently 
-            % for the various electrodes.
-            
-            % get all Signal objects associated with this channelindex
-            signals = self.getSignals();
-            epochs = [signals.epoch]; 
-            uniqueEpochs = unique( epochs );
-
-            % loop over unique epochs
-            for ep = uniqueEpochs
-
-                % pull out the appropriate signals
-                theseSignals = signals.findObj( 'Epoch',ep ); 
-                voltage = [theseSignals.voltage];
-
-                % get the multi-signal wavelet decomposition
-                dec = mdwtdec( 'c',voltage,wLevel,wType );
-                
-                % denoise the decomposition using single-resolution to better preserve spikes
-                voltage = mswden( 'den',dec,'sqtwolog','sln','s' );
-
-                % now add voltages back to their parent signals
-                for j = 1:numel( theseSignals )
-                    theseSignals(j).voltage(:) = voltage(:,j);
-                end
-            end
-        end
-        
+       
         
         function detectSpikes( self,varargin )
             % detectSpikes( self,(thresh,artifact,masked_detection) )
@@ -242,6 +201,7 @@ classdef ChannelIndex < Container
 
             % Spike Detection
             % ==================================================================
+
             fprintf( 'Detecting spikes across epochs' )
 
             for ep = 1:numel( uniqueEpochs )
@@ -294,6 +254,7 @@ classdef ChannelIndex < Container
             end
             
             fprintf( '\n' );
+
             % ==================================================================
             
             % updates
@@ -407,7 +368,7 @@ classdef ChannelIndex < Container
             if p.useGUI
                 [labels,features,model] = sortTool( 'data',single( spsnips ),'projection',single( features ),...
                                                 'times',single( sptm ),'mask',single( mask ),...
-                                                'trials',single( epochnum ) );
+                                                'trials',single( epochnum ),'labels',labels );
                 p.projMethod = model.projMethod;
                 mapping = model.mapping;
             end

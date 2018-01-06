@@ -1,9 +1,7 @@
 # neo-matlab
 A MATLAB interpretation of [NEO](http://neuralensemble.org/neo/), a python package for organizing large datasets of multi-channel extracellular recordings.
 
-Neo-matlab is an all-purpose, modular package for analyzing and organizing large-scale electrophysiology recordings. While other excellent packages exist for a similar purpose (see "MClust", "KlustaKwik", "Spike2", and "SimpleClust" for some examples), each has its own shortcomming (including strict dependence on specific file formats, limited sorting routines, and lack of an integrated heirarchical organization system) that the neo-matlab package is aimed at resolving. 
-
-This package is built completely in the MATLAB language, meaning the only pre-processing needed for interfacing with the package is loading one's data into the MATLAB workspace. Although relying on the MATLAB language means this package has certain limitations (such as speed hits and more-rigid class structures compared to Python), MALTAB continues to be the defacto language for neural data analysis. Additionally, there are a plethora of third-party functions developed by the MATLAB community that facilitate loading data from most systems (Plexon, Axona, NeuroNexus, OpenEphys...) and performing a wide range of sophisticated analysis. 
+Neo-matlab is an all-purpose, modular package for analyzing and organizing large-scale electrophysiology recordings. While other excellent packages exist for a similar purpose (see "MClust", "KlustaKwik", "Spike2", and "SimpleClust" for some examples), each has its own shortcomming (including strict dependence on specific file formats, limited sorting routines, and lack of an integrated heirarchical organization system) that the neo-matlab package is aimed at resolving. This package is built completely in the MATLAB language, meaning the only pre-processing needed for interfacing with the package is loading one's data into the MATLAB workspace.
 
 ## Structure
 The strength of this package comes from the combination of raw data preprocessing, spike detection and sorting, and an extensive multitiered system for organizing and storing data (highly inspired by the Neo Python package). The various classes used for data processing and organization are subclasses of the MATLAB *handle* class, meaning data and objects are all passed by reference. This results in a much more efficient data processing pipeline as objects (i.e. neurons, spikes, electrodes, etc.) and their corresponding data (i.e. spike waveforms, raw signals, etc.) grow in size. However, those unfamiliar with referenced data (as in Python) should familiarize themselves to avoid overwriting data accidentally. (Please also see the [heirarchy scheme](images/MatlabNeo_schematic.pdf))
@@ -68,15 +66,16 @@ While much of the package was written by me, certain features were either inspir
 3. Joshua Stough's [select data function](http://www.mathworks.com/matlabcentral/fileexchange/37956-select-data) (used in the sortTool GUI)
 4. Mo Chen's [EM-GMM and EM-VB](https://github.com/PRML/PRMLT) implementations
 5. Yarpiz [DBSCAN](www.yarpiz.com)
-6. Of course, inspiration from the [Neo](http://neuralensemble.org/neo/) python package
+6. Ulrike von Luxburg's [Spectral Clustering](httops://githb.com/Jorsorokin/neo-matlab/source/Functions/clustering/SpectralClustering.m)
+7. Inspiration from the [Neo](http://neuralensemble.org/neo/) python package
 
 ## Uses 
-For further information on using this package for data extraction and organization, see the [various examples](docs/examples), and the detailed [GUI documentation](docs/GUI_manual.pdf)
+For further information on using this package for data extraction and organization, see the [various examples](docs/examples), and the detailed [GUI documentation](docs/DRST_manual.pdf)
 
 ## To Do:
 - [X] method for eliminating common spikes detected across multiple ChannelIndex objects
 - [X] method for spike detection across all ChannelIndex objects (i.e. [Masked EM](https://www.ncbi.nlm.nih.gov/pubmed/25149694))
-- [ ] method for estimating best kernel for firing rates, and/or [adaptive kernels](https://link.springer.com/article/10.1007/s10827-009-0180-4)
+- [X] method for estimating best kernel for firing rates, and/or [adaptive kernels](https://link.springer.com/article/10.1007/s10827-009-0180-4)
 - [X] functions for clustering via Variational Bayes and EM-TMM in the sortTool GUI
 - [ ] method for visualizing the current heirarchy in the Block object (i.e. [connected graph](http://mathworld.wolfram.com/ConnectedGraph.html))
 - [ ] dealing with different sorting parameters when updating the sortModel property of the Neuron object
