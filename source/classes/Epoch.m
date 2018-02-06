@@ -177,35 +177,6 @@ classdef Epoch < Container
         end
 
 
-        function waveDenoise( self,wLevel,wType )
-            % waveDenoise( self,wLevel,wType )
-            %
-            % denoises the signals contained within all child Signal objects
-            % using multi-signal wavelet denoising.
-            % 
-            % wLevel equals the wavelet decomposition level desired (lower
-            % = less smoothing), and wType equals the wavelet to use.
-            %
-            % Note, this function will not work if the voltages contained within 
-            % the various "Signal" children have unequal or varying  
-            % sampling rates and/or number of points.
-            
-            % get all Signal objects associated with this channelindex
-            signals = self.getChild( 'Signal' );
-
-            % get the multi-signal wavelet decomposition
-            dec = mdwtdec( 'c',voltage,wLevel,wType );
-            
-            % denoise the decomposition using single-resolution to better preserve spikes
-            voltage = mswden( 'den',dec,'sqtwolog','sln','s' );
-
-            % now add voltages back to their parent signals
-            for j = 1:numel( signals )
-                signals(j).voltage(:) = voltage(:,j);
-            end
-        end
-
-
         function rmMovement( self,varargin )
             % rmMovement( self, (corrThresh) )
             %

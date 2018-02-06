@@ -23,7 +23,8 @@ function varargout = sortTool( varargin )
     % 
     % parametric:
     %   - Expectation Maximization for Gaussian Mixture Models (EM-GMM)
-    %   - Expectation Maximization for T-distribution Mixture Models (EM-TMM)
+    %   - Expectation Maximization for T-distribution Mixture Models
+    %     (EM-TMM...currently under development)
     %   - K-means (Km) 
     %   - Variational Bayes for GMMs (VB)
     % 
@@ -33,7 +34,7 @@ function varargout = sortTool( varargin )
     %   - Spectral clustering
     %
     % Finally, one can also manually delete, merge, and create new clusters 
-    % by clicking on the "Manual sort" button, and can select individual 
+    % by clicking on the "Cut clusters" button, and can select individual 
     % data points or individual clusters for viewing associated waveforms, 
     % ISI, and raster plots by clicking the "Select points" and the
     % "Select cluster" buttons, respectively. To remove all cluster labels, 
@@ -42,7 +43,9 @@ function varargout = sortTool( varargin )
     %
     % INPUTS:
     %   ( data ) - the raw waveforms in column-order (each column is one
-    %              observation, rows are variables). Can be 2- or 3-dimensional
+    %              observation, rows are variables). Can be 2- or
+    %              3-dimensional, in which case the third dimension may be
+    %              interpreted as channels
     %
     %   ( times ) - the times of the waveforms as one long vector, in seconds
     %
@@ -134,7 +137,8 @@ function varargout = sortTool( varargin )
         handles.location = nan;                         % vector specifying (x,y) location of each electrode
         handles.selectedPoints = nan;                   % points highlighted on the projection plot
         handles.manualClust = {};                       % will be added to while with manual cluster assignment
-        handles.plotDims = [1,2];                       % default plotting 1st & 2nd columns
+        handles.rotationDim = 1;                        % the dimension to rotate over
+        handles.rotationAngle = 0.1;                    % radians to rotate by
         handles.nDim = 3;                               % defaults to 3D projection 
         
         % set up sorting parameters
@@ -192,16 +196,18 @@ function varargout = sortTool( varargin )
                                 ];
                                 
         % repeat colors in case we have many identified neurons
-        handles.allPlotColor = [handles.allPlotColor; repmat( handles.allPlotColor(2:end,:),15,1 )]; 
+        handles.allPlotColor = [handles.allPlotColor; repmat( handles.allPlotColor(2:end,:),12,1 )]; 
         handles.plotcolor = nan;    
         
         % GET THE OPTIONAL INPUTS
         p = st_check_inputs( varargin );
+        
         handles.data = p.data;
         if any( ~isnan( gather( handles.data ) ) )
             handles.availableData = true;
             handles.R.keptPts = true( 1,size( handles.data,2 ) );
         end
+        
         handles.projection = p.projection;
         if any( ~isnan( gather( handles.projection ) ) )
             handles.availableProjection = true;
@@ -209,6 +215,7 @@ function varargout = sortTool( varargin )
                 handles.R.keptPts = true( 1,size( handles.projection,1 ) );
             end
         end
+        
         handles.labels = p.labels;
         handles.times = p.times;
         handles.trials = p.trials;
@@ -225,9 +232,9 @@ function varargout = sortTool( varargin )
         end
         
         % INITIATE THE PLOTS
-        axes( handles.mapplot ); hold on;
-        set( gca,'tickdir','out','box','off','fontsize',8,...
-            'xcolor','k','ycolor','k','ylim',[-1 1],'xlim',[-1 1]);
+        set( handles.mapplot,'tickdir','out','box','off','fontsize',8,...
+            'xcolor','k','ycolor','k','NextPlot','add'); %,...
+            %'PickableParts','none','HitTest','off' );
         handles.waveformplot = nan;
         handles.isiplot = nan;
         handles.rasterplot = nan;
@@ -463,49 +470,27 @@ function varargout = sortTool( varargin )
         [handles.projection,handles.R.mapping] = st_project_data( handles );
         handles.availableProjection = true;
         
+        % update the projection viewer based on the # of
+        % dimensions that have been kept
+        if handles.nDim == 1
+            handles.plotDims = 1;
+        else
+            handles.plotDims = zeros( handles.nDim,2 );
+            handles.plotDims(1,1) = 1;
+            handles.plotDims(2,2) = 1;
+        end
+        handles.loadingMatrix = handles.plotDims;
+        textObj = findobj( handles.figure1.Children,'Tag','rotationDimText' );
+        textObj.String = 'dim 1';
+        handles.rotationDim = 1;
+        
         % now plot onto the main figure
-        handles.plotDims( handles.plotDims > handles.nDim ) = handles.nDim;
         st_plot_projections( handles );
         st_plotSelectedData( handles );
 
         % update the GUI
         guidata( hObject, handles );
 
-                
-    % --- Executes during object creation, after setting all properties.
-    function dim1_CreateFcn(hObject, eventdata, handles) 
-
-        if ispc && isequal(get(hObject,'BackgroundColor'), get(0,'defaultUicontrolBackgroundColor'))
-            set(hObject,'BackgroundColor','white');
-        end
-        set(hObject,'String',1); % automatically sets to 1 when initializing
-        guidata( hObject,handles );
-
-        
-    function dim1_Callback(hObject, eventdata, handles)
-        % specifies the first dimension to display
-
-        handles.plotDims(1) = str2double( get( hObject,'String' ) );
-        guidata( hObject,handles );
-
-        
-    % --- Executes during object creation, after setting all properties.
-    function dim2_CreateFcn(hObject, eventdata, handles)
-
-        if ispc && isequal(get(hObject,'BackgroundColor'), get(0,'defaultUicontrolBackgroundColor'))
-            set(hObject,'BackgroundColor','white');
-        end
-
-        set(hObject,'String',2); % automatically sets to 2 when initializing
-        guidata( hObject, handles );
-        
-        
-    function dim2_Callback(hObject, eventdata, handles)
-        % specifies the second dimension to display
-        
-        handles.plotDims(2) = str2double( get( hObject,'String' ) );
-        guidata( hObject,handles );     
-        
 
     % --- Executes during object creation, after setting all properties.          
     function nDim_CreateFcn(hObject, eventdata, handles)
@@ -522,21 +507,115 @@ function varargout = sortTool( varargin )
   
         handles.nDim = str2double( get( hObject,'String' ) );
         guidata( hObject,handles );    
+    
         
-
     %% ================ plotting procedures ================
-
-     % --- Executes on button press in replogt
-    function replogt_Callback(hObject, eventdata, handles)
-        % update the plots according to new labels or projection dims
-
-        st_plot_projections( handles );
-        st_plotSelectedData( handles );
-        st_update_plots( handles );
+    function projectionNavigator_createFcn( hObject,eventdata,handles )
+        % creates the projection navigator window / graphics
+        
+        % plot a compass onto the axis
+        hold on
+        plotHandle = quiver( hObject,...
+            [0;0;0;0],[0;0;0;0],[1;-1;0;0],[0;0;1;-1],...
+            'color','w' );
+        plotHandle.PickableParts = 'none';
+        plotHandle.HitTest = 'off';     
+        
+        hObject.XLim = [-1,1];
+        hObject.YLim = [-1,1];
+        
+        %handles.projectionNavigator = hObject;
         guidata( hObject,handles );
         
+            
+    function projectionNavigator_clickFcn( hObject,eventdata,handles )
+        % allows the user to rotate through different views of the
+        % projections by changing the loadings for different projection
+        % dimensions in the loading matrix
         
-    % --- Executes on button press in selectdata
+        if ~handles.availableProjection
+            return
+        end
+        
+        % check where the user clicked
+        arrows = [1 0; -1 0; 0 1; 0 -1];
+        axis = [1 1 2 2];
+        directions = [1 -1 1 -1];
+        mousePos = eventdata.IntersectionPoint(1:2);
+        [~,closestArrow] = min( pdist2( mousePos,arrows ) );
+        
+        % change the value of the handles.plotDim variable depending 
+        % on which dimension we are rotating over, and which direction
+        % (left/right vs. up/down)   
+        loadingMatrix = handles.loadingMatrix;
+        rotationAxis = axis(closestArrow);
+        rotationValue = loadingMatrix(handles.rotationDim,rotationAxis);
+        rotationAmnt = handles.rotationAngle * directions(closestArrow);
+        rotationValue = rotationValue + rotationAmnt;
+        handles.loadingMatrix(handles.rotationDim,rotationAxis) = rotationValue;
+        handles.plotDims = sin( handles.loadingMatrix );
+        
+        % replot the scatter
+        st_update_scatter( handles );
+        
+        guidata( hObject,handles );
+     
+        
+    function prevDim_callback( hObject,eventdata,handles )
+        % moves the projection navigator to the next dimension of the
+        % projections for rotating the scatter
+        
+        handles.rotationDim = max( handles.rotationDim - 1,1 );        
+        textObj = findobj( handles.figure1.Children,'Tag','rotationDimText' );
+        textObj.String = ['dim ',num2str( handles.rotationDim )];
+        guidata( hObject,handles );
+
+            
+    function nextDim_callback( hObject,eventdata,handles )
+        % moves the projection navigator to the previous dimension of the
+        % projections for rotating the scatter
+        
+        handles.rotationDim = min( handles.rotationDim + 1,handles.nDim );
+        textObj = findobj( handles.figure1.Children,'Tag','rotationDimText' );
+        textObj.String = ['dim ',num2str( handles.rotationDim )];
+        guidata( hObject,handles );
+    
+       
+    function viewProjectionLoading_callback( hObject,eventdata,handles )
+        % plots the loading weights of the dimensions of the projections 
+        % for each of the two axes of the scatter plot
+        
+        if ~handles.availableProjection
+            return
+        end
+        
+        figure( 'Position',[500,600,500,400],'Color','k','menu','none' );
+        ynames = {'x-axis loading','y-axis loading'};
+        for j = 1:2
+            ax = subplot( 2,1,j );
+            stem( 'parent',ax,handles.plotDims(:,j) );
+            set( ax,'tickdir','out','box','off',...
+                'xlim',[0,handles.nDim+1],'ylim',[-1 1],...
+                'color','k','xcolor','w','ycolor','w',...
+                'xtick',1:handles.nDim );
+            ax.XLabel.String = 'projection dim';
+            ax.YLabel.String = ynames{j};
+        end
+        
+        
+    function resetProjectionLoading_callback( hObject,eventdata,handles )
+        % resets the loadings so that the first and second dimensions are 
+        % plotted completely onto the x-axis / y-axis 
+        
+        handles.plotDims(:) = 0;
+        handles.plotDims(1,1) = 1;
+        handles.plotDims(2,2) = 1;
+        handles.loadingMatrix = handles.plotDims;
+        
+        st_update_scatter( handles );
+        guidata( hObject,handles );
+                
+        
     function selectdata_Callback(hObject, eventdata, handles)
         % allows user to select individual data points in the main plot  
 
@@ -592,7 +671,8 @@ function varargout = sortTool( varargin )
     function cleardata_Callback(hObject, eventdata, handles)
 
         % clear all data selection
-        handles = st_clearSelectedData( handles );
+        st_clearSelectedData( handles );
+        handles.selectedPoints(handles.selectedPoints) = false;
         
         % update
         guidata( hObject,handles );
@@ -843,7 +923,7 @@ function varargout = sortTool( varargin )
             pts = handles.selectedPoints;
             saveModel = true;
         else
-            continueSorting = questdlg( 'Sort all points?','Yes','No' );
+            continueSorting = questdlg( 'Sort all points?','','Yes','No','Yes' );
             if ~strcmp( continueSorting,'Yes' )
                 return
             end
@@ -864,6 +944,8 @@ function varargout = sortTool( varargin )
                             return
                         end
                         [~,K] = findClustNum( handles.projection(pts,:)',2,50 );
+                    otherwise
+                        K = 1;                        
                 end
         end
         
@@ -903,13 +985,6 @@ function varargout = sortTool( varargin )
                                                         'minclustsize',handles.sortOptions.minclustsize,...
                                                         'outlierThresh',handles.sortOptions.outlierThresh );
 
-        % % refine the clusters of this sorting run
-        % if any( strcmp( handles.R.sortMethod,{'EM-GMM','mEM-GMM','VB','mVB','Km'} ) )
-        %     projections = gather( handles.projection(pts,:) );
-        %     tempModel = get_sorting_model( projections,labels,handles.R.sortMethod );
-        %     labels = st_refine_cluster( labels,tempModel.probabilities,handles.sortOptions.rejectProb ); 
-        % end
-
         % change the labels to contain the original label plus consecutive
         % labels for each new cluster
         labels = uint8( labels );
@@ -948,7 +1023,8 @@ function varargout = sortTool( varargin )
         % initiates the functionality for manual sorting (cluster cutting)
 
         % clear any data selection
-        handles = st_clearSelectedData( handles );
+        st_clearSelectedData( handles );
+        handles.selectedPoints(handles.selectedPoints) = false;
         
         % check if data has been plotted
         axes( handles.mapplot );
@@ -965,7 +1041,6 @@ function varargout = sortTool( varargin )
         set( handles.finishManual,'enable','on' );
         set( handles.autosort,'enable','off' );
         set( handles.projectdata,'enable','off' );
-        set( handles.replogt,'enable','off' );
         set( handles.refineClusts,'enable','off' );
 
         % update
@@ -1023,7 +1098,8 @@ function varargout = sortTool( varargin )
         end
         
         % update
-        handles = st_clearSelectedData( handles );
+        st_clearSelectedData( handles );
+        handles.selectedPoints(handles.selectedPoints) = false;
         guidata( hObject,handles );
 
         
@@ -1046,7 +1122,8 @@ function varargout = sortTool( varargin )
             case 'Labels & data points'
                 warning 'off'
                 
-                handles = st_clearSelectedData( handles );
+                st_clearSelectedData( handles );
+                handles.selectedPoints(handles.selectedPoints) = false;
                 handles.mapplot.Children.XData(pts) = [];
                 handles.mapplot.Children.YData(pts) = [];
                 handles.mapplot.Children.CData(pts,:) = [];
@@ -1057,7 +1134,8 @@ function varargout = sortTool( varargin )
         end
         
         % update
-        handles = st_clearSelectedData( handles );
+        st_clearSelectedData( handles );
+        handles.selectedPoints(handles.selectedPoints) = false;
         guidata( hObject,handles );
        
         
@@ -1066,12 +1144,12 @@ function varargout = sortTool( varargin )
 
         % get all new clusters and the points belonging to them
         if sum( ~cellfun( @isempty,handles.manualClust ) > 0 )
+            scatterPoints = [handles.mapplot.Children(end).XData; handles.mapplot.Children(end).YData];
             for i = 1:numel( handles.manualClust ) 
                 if isvalid( handles.manualClust{i} )
                     position = handles.manualClust{i}.getPosition;
-                    inpts = inpolygon( handles.projection(:,handles.plotDims(1)),...
-                                handles.projection(:,handles.plotDims(2)),...
-                                position(:,1),position(:,2) );
+                    inpts = inpolygon( scatterPoints(1,:),scatterPoints(2,:),...
+                                       position(:,1),position(:,2) );
 
                     % create a new label for each new additional label
                     handles.labels(inpts) = max( handles.labels )+1;
@@ -1087,7 +1165,6 @@ function varargout = sortTool( varargin )
         set( handles.finishManual,'enable','off' );
         set( handles.autosort,'enable','on' );
         set( handles.projectdata,'enable','on' );
-        set( handles.replogt,'enable','on' );
         set( handles.refineClusts,'enable','on' );
         
         % update
@@ -1145,7 +1222,10 @@ function varargout = sortTool( varargin )
 
         % compute cluster quality and store into handles
         handles.R.clusterQuality...
-         = measure_cluster_quality( handles.projection,handles.labels,handles.sortOptions.clusterMetric );
+         = measure_cluster_quality( handles.projection,...
+                                    handles.labels,...
+                                    handles.sortOptions.clusterMetric,...
+                                    'euclidean'); % <-- to update, JS
         
         % plot the quality if the figure is available
         if ~isa( handles.qualityplot,'double' ) && isvalid( handles.qualityplot )

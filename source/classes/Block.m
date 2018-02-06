@@ -34,6 +34,8 @@ classdef Block < Container
     %   write
     %   getNeurons
     %   undoSorting
+    %   mergeSimilarNeurons
+    %   saveSpikeWaveforms
     %
     %       * see also methods in the Container class
     
@@ -313,8 +315,124 @@ classdef Block < Container
     
             self.update;
         end
-                
-    end % methods
+        
+        function mergeSimilarNeurons( self,corrThresh )
+            % mergeSimilarNeurons( self,corrThresh )
+            %
+            % Merge neurons for each ChannelIndex whos mean waveforms have
+            % a correlation coefficient >= "corrThresh"
 
+            % check for any neurons
+            if self.nUnits == 0
+                disp( 'No neurons in this block' );
+                return
+            end
+
+            % loop over channel indices
+            for ch = 1:self.nChanInds
+                fprintf( 'Merging neurons for ChannelIndex %i\n',ch );
+                chanind = self.getChild( 'ChannelIndex',ch );
+                neurons = chanind.getChild( 'Neuron' );
+                nunits = numel( neurons );
+                if nunits <= 1
+                    continue
+                end
+
+                % preallocate vars
+                nPts = numel( neurons(1).meanWaveform );
+                meanWaveform = zeros( nPts,nunits );
+                IDs = [neurons.ID];
+
+                % get the mean waveform
+                for j = 1:nunits
+                    if isempty( neurons(j).meanWaveform )
+                        spikes = neurons(j).getSpikes;
+                        neurons(j).meanWaveform = squeeze( mean( spikes,2 ) );
+                    end
+                    meanWaveform(:,j) = reshape( neurons(j).meanWaveform,nPts,1 );
+                end
+                clear neurons
+
+                % find similar waveforms and merge those neurons
+                corrMat = corr( meanWaveform ) - eye( nunits );
+                [i,j] = find( corrMat >= corrThresh );
+                unique_i = unique( i' );
+                nFinalUnits = size( meanWaveform,2 );
+                if ~isempty( i )
+                    for k = unique_i
+                        inds = (i==k);
+                        chanind.mergeNeurons( [IDs(k),IDs(j(inds))] );
+                    end
+
+                    % re-order the neuron children
+                    [~,idx] = sort( [chanind.getChild('Neuron').ID] );
+                    neuronChild = find( contains( cellfun( @class,chanind.children,'un',0 ),'Neuron' ) );
+                    chanind.children{neuronChild} = chanind.children{neuronChild}(idx);
+                    nFinalUnits = numel( idx );
+                end
+                
+                % add channel locations
+                neurons = chanind.getChild( 'Neuron' );
+                distances = chanind.chanDistances;
+                for k = 1:numel( neurons )
+                    [~,neurons(k).bestElectrode] = min( min( neurons(k).meanWaveform ) );
+                    neurons(k).location = distances(neurons(k).bestElectrode,:);
+                end
+
+                fprintf( 'Merged %i neurons\n',nunits - nFinalUnits );
+            end
+
+            self.update();  
+        end
+        
+        function saveSpikeWaveforms( self,spikesDir )
+            % saveSpikeWaveforms( self,spikesDir )
+            % 
+            % save the voltage waveforms of all the spikes contained in
+            % this block into the "spikesDir" folder. The saved file is a
+            % .mat file, with the spike waveforms in the variable "spikes", the
+            % masking matrices in "mask", the trials of the spikes in the
+            % variable "epochs", the shank from which the spikes came from in the 
+            % variable "unitCH', and the neuron ID in the variable
+            % "unitID".
+            %
+            % Note that Each Spike object will have its voltage
+            % waveforms and masking matrix removed, so that the parent
+            % Block will use less disk space!!
+            
+            % pre-allocate
+            neurons = self.getNeurons();
+            nunits = self.nUnits;
+
+            spikes = cell( 1,nunits );
+            epochs = cell( 1,nunits );
+            mask = cell( 1,nunits );
+            unitID = uint8([neurons.ID]);
+            unitCH = uint8([neurons.chanInd]);
+
+            % loop over neurons, pull out spikes
+            for n = 1:nunits
+                [sp,~,ep,m] = neurons(n).getSpikes();
+                spikes{n} = single( sp );
+                mask{n} = sparse( double( m ) );
+                epochs{n} = uint8( ep );
+                neurons(n).meanWaveform = squeeze( mean( sp,2 ) );
+
+                spObj = neurons(n).getChild( 'Spikes' );
+                for sp = 1:numel( spObj )
+                    spObj(sp).voltage = [];
+                    spObj(sp).mask = [];
+                end
+            end
+
+            % save the spikes
+            saveFile = [spikesDir,filesep,self.filename,'_spikeWaveforms.mat'];
+            save( saveFile,'spikes','epochs','mask','unitID','unitCH','-v7.3' );   
+            
+            % update the block
+            self.update();
+        end
+        
+    end % methods
 end
 

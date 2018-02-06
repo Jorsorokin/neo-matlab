@@ -186,11 +186,9 @@ classdef Neuron < Container
             
             % plot spike waveforms for each "Spikes" child
             set( gcf,'Visible','off' );
-            
             for j = 1:nChild
                 spChild(j).plot( cmap(j,:),chans );
             end
-
             set( gcf,'Visible','on' );
             suptitle( sprintf( 'Unit %i',self.ID ) );
         end

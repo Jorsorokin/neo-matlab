@@ -1,37 +1,5 @@
 classdef Electrode < Container
-    % self = Electrode( electrodeNum )
-    %
-    % Creates an instance of the Electrode class.
-    % An Electrode is a container for multiple Signal objects that
-    % originate from the same recording channel.
-    %
-    % An Electrode object can belong to multiple ChannelIndex
-    % objects (as in the case of dense, multi-electrode 
-    % probes/arrays), and can also have multiple Signal children,
-    % which refer to different Epochs. 
-    %
-    % Children:
-    %   Signal
-    %
-    % Parents:
-    %   ChannelIndex
-    %   Block
-    %
-    % Properties:
-    %   nSignals - the number of channels contained in this Signal
-    %   chanInd - the parent ChannelIndex numbers
-    %   nChanInd - the number of ChannelIndex parents
-    %   electrodeNum - a unique number refering to this electrode
-    %   name - a user-defined tag for the electrode (i.e. "shank 3, chan 2")
-    %   
-    % Methods:
-    %   plot
-    %   getSpikes
-    %   getVoltage
-    %   resampleSignals
-    %   
-    %       * see also methods in the Container class  
-
+    
     properties
         nSignals = 0;
         nChanInd = 0;
@@ -42,7 +10,40 @@ classdef Electrode < Container
     
     methods
         
-        function self = Electrode( electrodeNum )            
+        function self = Electrode( electrodeNum )
+            % self = Electrode( electrodeNum )
+            %
+            % Creates an instance of the Electrode class.
+            % An Electrode is a container for multiple Signal objects that
+            % originate from the same recording channel.
+            %
+            % An Electrode object can belong to multiple ChannelIndex
+            % objects (as in the case of dense, multi-electrode 
+            % probes/arrays), and can also have multiple Signal children,
+            % which refer to different Epochs. 
+            %
+            % Children:
+            %   Signal
+            %
+            % Parents:
+            %   ChannelIndex
+            %   Block
+            %
+            % Properties:
+            %   nSignals - the number of channels contained in this Signal
+            %   chanInd - the parent ChannelIndex numbers
+            %   nChanInd - the number of ChannelIndex parents
+            %   electrodeNum - a unique number refering to this electrode
+            %   name - a user-defined tag for the electrode (i.e. "shank 3, chan 2")
+            %   
+            % Methods:
+            %   plot
+            %   getSpikes
+            %   getVoltage
+            %   resampleSignals
+            %   
+            %       * see also methods in the Container class
+            
             self.electrodeNum = electrodeNum;
         end
         

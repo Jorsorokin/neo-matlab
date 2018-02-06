@@ -86,17 +86,20 @@ end
         
 % PROJECTIONS
 if concatenate
-    % concatenate X into an n x m*c matrix
-    X = reshape( permute( X,[2,3,1] ),m*c,n )'; 
+    
+    % first perform 2D PCA for dimensionality reduction, which 
+    % vastly speeds up the subsequent mapping
+    [~,~,proj] = pca2D( permute( X,[3,2,1] ),0.85 ); % 85 % variance explained
+    proj = reshape( proj,c*size( proj,2 ),n )';
 
-    % compute the appropriate mapping
+    % compute the appropriate mapping on the reduced X
     switch method
         case {'ICA','ica'}
-            [W,features,~] = fastica( X,'numOfIC',ndim,'lasteig',ndim*2 );
+            [W,features,~] = fastica( proj,'numOfIC',ndim,'lasteig',ndim*2 );
             W = W';
             
         otherwise
-            [features,mapping] = compute_mapping( X,method,ndim );
+            [features,mapping] = compute_mapping( proj,method,ndim );
             if isfield( mapping,'M' )
                 W = mapping.M;
             else
