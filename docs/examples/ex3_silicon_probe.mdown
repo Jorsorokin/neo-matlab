@@ -66,12 +66,6 @@ mask = true;
 chanind.sortSpikes( 'level',nDim,'method',method,'sortMethod',sortMethod,'reject',reject,'mask',mask );
 ```
 
-Alternatively, we could have sorted using the *sortTool* GUI, which also accepts a masking matrix...
-
-``` matlab
-% because we have created and stored the masking matrix and channel distances into this
-% ChannelIndex object, we do not need to explicitly provide them into the sorting GUI
-chanind.sortGUI(); 
-```
+Alternatively, we could have sorted using the *sortTool* GUI, which also accepts a masking matrix.
 
 

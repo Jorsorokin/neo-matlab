@@ -66,15 +66,15 @@ While much of the package was written by me, certain features were either inspir
 3. Joshua Stough's [select data function](http://www.mathworks.com/matlabcentral/fileexchange/37956-select-data) (used in the sortTool GUI)
 4. Mo Chen's [EM-GMM and EM-VB](https://github.com/PRML/PRMLT) implementations
 5. Yarpiz [DBSCAN](www.yarpiz.com)
-6. Ulrike von Luxburg's [Spectral Clustering](httops://githb.com/Jorsorokin/neo-matlab/source/Functions/clustering/SpectralClustering.m)
-7. Inspiration from the [Neo](http://neuralensemble.org/neo/) python package
+6. Ulrike von Luxburg's [Spectral Clustering](https://github.com/Jorsorokin/neo-matlab/source/Functions/clustering/SpectralClustering.m)
+7. Shimazaki's [kernel bandwidth estimation](https://github.com/Jorsorokin/neo-matlab/source/Functions/spike_analysis/sskernel.m)
+8. Inspiration from the [Neo](http://neuralensemble.org/neo/) python package
 
 ## Uses 
 For further information on using this package for data extraction and organization, see the [various examples](docs/examples), and the detailed [GUI documentation](docs/DRST_manual.pdf)
 
 ## To Do:
 - [X] method for eliminating common spikes detected across multiple ChannelIndex objects
-- [X] method for spike detection across all ChannelIndex objects (i.e. [Masked EM](https://www.ncbi.nlm.nih.gov/pubmed/25149694))
 - [X] method for estimating best kernel for firing rates, and/or [adaptive kernels](https://link.springer.com/article/10.1007/s10827-009-0180-4)
 - [X] functions for clustering via Variational Bayes and EM-TMM in the sortTool GUI
 - [ ] method for visualizing the current heirarchy in the Block object (i.e. [connected graph](http://mathworld.wolfram.com/ConnectedGraph.html))
