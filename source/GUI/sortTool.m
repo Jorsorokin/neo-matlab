@@ -135,6 +135,7 @@ function varargout = sortTool( varargin )
         handles.trials = nan;                           % n-dim vector used for plotting rasters
         handles.mask = nan;                             % mask vector (see "double_flood_fill.m")
         handles.location = nan;                         % vector specifying (x,y) location of each electrode
+        handles.nLocationDim = 0;                      % the number of location dimensions
         handles.selectedPoints = nan;                   % points highlighted on the projection plot
         handles.manualClust = {};                       % will be added to while with manual cluster assignment
         handles.rotationDim = 1;                        % the dimension to rotate over
@@ -221,6 +222,9 @@ function varargout = sortTool( varargin )
         handles.trials = p.trials;
         handles.mask = p.mask;
         handles.location = p.location;
+        if ~all( isnan( handles.location ) )
+            handles.nLocationDim = size( handles.location,2 );
+        end
         clear p
                
         % get the selectedPoints if data available
@@ -233,12 +237,12 @@ function varargout = sortTool( varargin )
         
         % INITIATE THE PLOTS
         set( handles.mapplot,'tickdir','out','box','off','fontsize',8,...
-            'xcolor','k','ycolor','k','NextPlot','add'); %,...
-            %'PickableParts','none','HitTest','off' );
+            'xcolor','k','ycolor','k','NextPlot','add');
         handles.waveformplot = nan;
         handles.isiplot = nan;
         handles.rasterplot = nan;
         handles.qualityplot = nan;
+        handles.loadingplot = [];
         handles.plotcolor = update_plot_colors( handles );
         
         % plot the projections if provided
@@ -249,7 +253,8 @@ function varargout = sortTool( varargin )
         % turn on the main figure
         handles.figure1.Visible = 'on';
         
-        % Update handles structure
+        % Update handles structure 
+        setappdata( 0,'HandleMainGUI',hObject );
         guidata( hObject, handles );
         
         % keep track of the GUI visibility before running the OutputFcn
@@ -472,13 +477,15 @@ function varargout = sortTool( varargin )
         
         % update the projection viewer based on the # of
         % dimensions that have been kept
-        if handles.nDim == 1
+        totalDims = handles.nDim + handles.nLocationDim;
+        if totalDims == 1
             handles.plotDims = 1;
         else
-            handles.plotDims = zeros( handles.nDim,2 );
+            handles.plotDims = zeros( totalDims,2 );
             handles.plotDims(1,1) = 1;
             handles.plotDims(2,2) = 1;
         end
+        
         handles.loadingMatrix = handles.plotDims;
         textObj = findobj( handles.figure1.Children,'Tag','rotationDimText' );
         textObj.String = 'dim 1';
@@ -487,6 +494,7 @@ function varargout = sortTool( varargin )
         % now plot onto the main figure
         st_plot_projections( handles );
         st_plotSelectedData( handles );
+        st_update_loadingplot( handles );
 
         % update the GUI
         guidata( hObject, handles );
@@ -516,13 +524,13 @@ function varargout = sortTool( varargin )
         % plot a compass onto the axis
         hold on
         plotHandle = quiver( hObject,...
-            [0;0;0;0],[0;0;0;0],[1;-1;0;0],[0;0;1;-1],...
+            [0;0;0;0],[0;0;0;0],[0.5;-0.5;0;0],[0;0;0.5;-0.5],...
             'color','w' );
         plotHandle.PickableParts = 'none';
         plotHandle.HitTest = 'off';     
         
-        hObject.XLim = [-1,1];
-        hObject.YLim = [-1,1];
+        hObject.XLim = [-0.5,0.5];
+        hObject.YLim = [-0.5,0.5];
         
         %handles.projectionNavigator = hObject;
         guidata( hObject,handles );
@@ -555,9 +563,16 @@ function varargout = sortTool( varargin )
         handles.loadingMatrix(handles.rotationDim,rotationAxis) = rotationValue;
         handles.plotDims = sin( handles.loadingMatrix );
         
-        % replot the scatter
-        st_update_scatter( handles );
+        % replot the scatter and update the loading plot 
+        st_update_loadingplot( handles,rotationAxis );
         
+        if rotationAxis == 1
+            handles.mapplot.Children.XData = handles.projection * handles.plotDims(:,1);
+        else
+            handles.mapplot.Children.YData = handles.projection * handles.plotDims(:,2);
+        end
+        
+        % update handles
         guidata( hObject,handles );
      
         
@@ -575,7 +590,7 @@ function varargout = sortTool( varargin )
         % moves the projection navigator to the previous dimension of the
         % projections for rotating the scatter
         
-        handles.rotationDim = min( handles.rotationDim + 1,handles.nDim );
+        handles.rotationDim = min( handles.rotationDim + 1,handles.nDim + handles.nLocationDim );
         textObj = findobj( handles.figure1.Children,'Tag','rotationDimText' );
         textObj.String = ['dim ',num2str( handles.rotationDim )];
         guidata( hObject,handles );
@@ -589,18 +604,13 @@ function varargout = sortTool( varargin )
             return
         end
         
-        figure( 'Position',[500,600,500,400],'Color','k','menu','none' );
-        ynames = {'x-axis loading','y-axis loading'};
-        for j = 1:2
-            ax = subplot( 2,1,j );
-            stem( 'parent',ax,handles.plotDims(:,j) );
-            set( ax,'tickdir','out','box','off',...
-                'xlim',[0,handles.nDim+1],'ylim',[-1 1],...
-                'color','k','xcolor','w','ycolor','w',...
-                'xtick',1:handles.nDim );
-            ax.XLabel.String = 'projection dim';
-            ax.YLabel.String = ynames{j};
+        if ~isempty( handles.loadingplot ) && handles.loadingplot.isvalid 
+            return
         end
+        
+        % create the figure
+        handles.loadingplot = st_create_loadingplot( handles );
+        guidata( hObject,handles );
         
         
     function resetProjectionLoading_callback( hObject,eventdata,handles )
@@ -612,6 +622,7 @@ function varargout = sortTool( varargin )
         handles.plotDims(2,2) = 1;
         handles.loadingMatrix = handles.plotDims;
         
+        % update the scatter
         st_update_scatter( handles );
         guidata( hObject,handles );
                 
@@ -633,6 +644,7 @@ function varargout = sortTool( varargin )
             return
         end
         
+        % plot the selected points
         handles.selectedPoints(pts) = true;
         st_plotSelectedData( handles );
         
@@ -659,6 +671,7 @@ function varargout = sortTool( varargin )
             return
         end
         
+        % plot selected cluster
         handles.selectedPoints(pts) = true;
         st_plotSelectedData( handles );
         
@@ -767,14 +780,13 @@ function varargout = sortTool( varargin )
         guidata( hObject,handles );  
 
 
-    % --- executes with plotClusterQuality push 
     function plotClusterQuality_Callback( hObject,eventdata,handles )
 
         % check if cluster quality is available
-        if isa( handles.qualityplot,'double' ) || ~isvalid( handles.qualityplot )
-            handles.qualityplot = st_create_qualityPlot( handles );
+        if isa( handles.qualityplot,'double' ) || ~handles.qualityplot.isvalid
+            handles.qualityplot = st_create_qualityPlot( handles );        
         end
-
+        
         % plot the cluster quality for the clusters
         switch handles.qualityplot.Visible 
             case 'on'
@@ -785,10 +797,11 @@ function varargout = sortTool( varargin )
         
         % update
         guidata( hObject,handles );
-
         
-    % --- allows right clicking on the scatter plot
+                
     function mapplot_mouseclick( hObject,eventdata,handles )
+        % allows the user to right-click on the scatter plot and delete
+        % points/labels for each point separately
         
         % check if any data projected
         if isempty( hObject.Children )

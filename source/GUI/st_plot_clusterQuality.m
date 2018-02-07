@@ -26,11 +26,7 @@ function st_plot_clusterQuality( handles )
     
     % highlight the clusters if any points in the projection plot belonging 
     % to those clusters that are highlighted
-    pts = handles.selectedPoints;
-    if any( pts )
-        clusts = unique( handles.labels(pts) );
-        ax.Children.SizeData(pts) = 300;
-    end 
+    ax.Children.SizeData(handles.labels(handles.selectedPoints)) = 500;
 
     % now plot running cluster averages
     ax = handles.qualityplot.Children(1);
