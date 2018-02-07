@@ -624,6 +624,8 @@ function varargout = sortTool( varargin )
         
         % update the scatter
         st_update_scatter( handles );
+        st_update_loadingplot( handles,1 );
+        st_update_loadingplot( handles,2 );
         guidata( hObject,handles );
                 
         
