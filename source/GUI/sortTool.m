@@ -494,7 +494,8 @@ function varargout = sortTool( varargin )
         % now plot onto the main figure
         st_plot_projections( handles );
         st_plotSelectedData( handles );
-        st_update_loadingplot( handles );
+        st_update_loadingplot( handles,1 );
+        st_update_loadingplot( handles,2 );
 
         % update the GUI
         guidata( hObject, handles );
