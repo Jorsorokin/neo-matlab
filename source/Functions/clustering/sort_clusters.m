@@ -94,7 +94,7 @@ switch method
         
     case 'HDBSCAN'
         hdbscan = HDBSCAN( X ); % creates an instance of the HDBSCAN cluster object
-        hdbscan.run_hdbscan( p.neighbors,p.minclustsize,2,p.outlierThresh,false );
+        hdbscan.run_hdbscan( p.neighbors,p.minclustsize,K,2,p.outlierThresh,false );
 
         % output model
         model = hdbscan.model;
