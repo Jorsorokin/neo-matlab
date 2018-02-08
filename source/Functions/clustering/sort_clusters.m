@@ -101,7 +101,12 @@ switch method
         labels = hdbscan.labels;
         
     case 'Spectral'
-        W = adjacency_graph( X,p.neighborType,p.neighbors,p.kernelWeighting,p.sigma );
+        if strcmp( p.neighborType,'eps' )
+            W = adjacency_graph( X,p.neighborType,p.eps,p.kernelWeighting,p.sigma );
+        else
+            W = adjacency_graph( X,p.neighborType,p.neighbors,p.kernelWeighting,p.sigma );
+        end
+
         %[labels,alpha] = wMSC( W,p.sigma,K ); 
         if p.kernelWeighting
             labels = SpectralClustering( W,K,2 );
