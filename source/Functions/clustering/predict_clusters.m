@@ -52,6 +52,9 @@ switch method
     case 'DBSCAN'
         fprintf( 'DBSCAN cluster prediction under development...\n' );
         labels = nan;
+        
+    case 'HDBSCAN'
+        labels = model.predict( X );
 
     otherwise
         fprintf( 'Unable to predict cluster assignment via %s clustering.\n',method );
