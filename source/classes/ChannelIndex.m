@@ -407,7 +407,7 @@ classdef ChannelIndex < Container
             if p.useGUI
                 [labels,features,model] = sortTool( 'data',single( spsnips ),'projection',single( features ),...
                                                 'times',single( sptm ),'mask',single( mask ),...
-                                                'trials',single( epochnum ) );
+                                                'trials',single( epochnum ),'labels',labels );
                 p.projMethod = model.projMethod;
                 mapping = model.mapping;
             end
