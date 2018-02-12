@@ -1,5 +1,38 @@
 classdef Signal < Container
-    
+        % self = Signal( voltage,fs )
+        %
+        % Create an instance of the Signal class.
+        % A Signal object contains digitally-sampled
+        % voltages from a continuous recording.
+        %
+        % Multiple Signal objects with the same
+        % ChannelIndex parent may exist, which could reflect multiple
+        % Epochs of data from the same group of channels.
+        %
+        % Children
+        %   none
+        %
+        % Parents
+        %   Electrode
+        %   Epoch
+        %
+        % Properties
+        %   units - the measurement units of this signal (default = 'uV')
+        %   fs - the sampling rate for the voltage traces
+        %   nPoints - the number of sample points of this Signal
+        %   duration - total duration in time
+        %   voltage - the actual voltage values of this Signal
+        %   electrode - the parent electrode
+        %   epoch - the parent epoch #
+        %
+        % methods
+        %   plot
+        %   filter
+        %   resample
+        %   estimateNoise
+        %
+        %       * see also methods in the Container class
+        
     properties
         units = 'uV'
         voltage
@@ -14,39 +47,6 @@ classdef Signal < Container
     methods
 
         function self = Signal( voltage,fs )
-            % self = Signal( voltage,fs )
-            %
-            % Create an instance of the Signal class.
-            % A Signal object contains digitally-sampled
-            % voltages from a continuous recording.
-            %
-            % Multiple Signal objects with the same
-            % ChannelIndex parent may exist, which could reflect multiple
-            % Epochs of data from the same group of channels.
-            %
-            % Children
-            %   none
-            %
-            % Parents
-            %   Electrode
-            %   Epoch
-            %
-            % Properties
-            %   units - the measurement units of this signal (default = 'uV')
-            %   fs - the sampling rate for the voltage traces
-            %   nPoints - the number of sample points of this Signal
-            %   duration - total duration in time
-            %   voltage - the actual voltage values of this Signal
-            %   electrode - the parent electrode
-            %   epoch - the parent epoch #
-            %
-            % methods
-            %   plot
-            %   filter
-            %   resample
-            %   estimateNoise
-            %
-            %       * see also methods in the Container class
             
             self.voltage = voltage;
             self.fs = fs;
