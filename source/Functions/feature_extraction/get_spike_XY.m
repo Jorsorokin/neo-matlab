@@ -1,10 +1,10 @@
 function E_spikeXY = get_spike_XY( X,chanLoc,varargin )
-% Espike_xy = get_spike_distance( X,chanLoc,(mask) )
+% E_spikeXY = get_spike_XY( X,chanLoc,(mask) )
 %
 % compute the expectation of the (x,y) location of each spike given the
 % channel distance vector "chanLoc". X is an n x m x c matrix, with n =
 % observations, m = variables, c = channels. Can optionally provide a c x n
-% masking matrix, in which E_spikeXY will take only unmasked channels for
+% masking matrix "mask", in which E_spikeXY will take only unmasked channels for
 % each spike into account
 
 if nargin > 2 && ~isempty( varargin{1} )
