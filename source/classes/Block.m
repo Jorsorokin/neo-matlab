@@ -116,17 +116,19 @@ classdef Block < Container
 
             % check for validity & update: ChannelIndex
             % =========================================
-            chanind(~isvalid( chanind )) = []; % eliminates bad channel indices
-            if ~isempty( chanind )     
-                self.nElectrodes = 0;
-                chanind(~isvalid( chanind )) = [];
-                hasElectrodes = find( [chanind.nElectrodes] );
-                for j = hasElectrodes
-                    chanElectrodes = chanind(j).getChild( 'Electrode' );
-                    electrodeID = [chanElectrodes.electrodeNum];
-                    chanind(j).nElectrodes = numel( electrodeID );
-                    chanind(j).chanIDs = electrodeID; % the actual electrode IDs 
-                    chanind(j).nUnits = numel( chanind(j).getChild( 'Neuron' ) );
+            if ~isempty( chanind )
+                chanind(~isvalid( chanind )) = []; % eliminates bad channel indices
+                if ~isempty( chanind )     
+                    self.nElectrodes = 0;
+                    chanind(~isvalid( chanind )) = [];
+                    hasElectrodes = find( [chanind.nElectrodes] );
+                    for j = hasElectrodes
+                        chanElectrodes = chanind(j).getChild( 'Electrode' );
+                        electrodeID = [chanElectrodes.electrodeNum];
+                        chanind(j).nElectrodes = numel( electrodeID );
+                        chanind(j).chanIDs = electrodeID; % the actual electrode IDs 
+                        chanind(j).nUnits = numel( chanind(j).getChild( 'Neuron' ) );
+                    end
                 end
             end
             self.nChanInds = numel( chanind );

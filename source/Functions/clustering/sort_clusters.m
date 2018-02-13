@@ -95,9 +95,6 @@ switch method
     case 'HDBSCAN'
         hdbscan = HDBSCAN( X ); % creates an instance of the HDBSCAN cluster object
         hdbscan.run_hdbscan( p.neighbors,p.minclustsize,K,2,p.outlierThresh,false );
-
-        % output model
-        model = hdbscan.model;
         labels = hdbscan.labels;
         
     case 'Spectral'
@@ -106,7 +103,6 @@ switch method
         else
             W = adjacency_graph( X,p.neighborType,p.neighbors,p.kernelWeighting,p.sigma );
         end
-
         %[labels,alpha] = wMSC( W,p.sigma,K ); 
         if p.kernelWeighting
             labels = SpectralClustering( W,K,2 );
@@ -116,7 +112,7 @@ switch method
 end
 
 % make into correct format
-labels = int8( labels );
+labels = uint8( labels );
 if ~isrow( labels )
     labels = labels';
 end
@@ -145,6 +141,8 @@ if nargout > 1
 %             model.nNeighbors = p.neighbors; % # neighbors
 %             model.sigma = p.sigma;
 %             model.K = K; % # of clusters
+        case 'HDBSCAN'
+            model = hdbscan.model;
     end
 end
 

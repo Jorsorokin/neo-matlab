@@ -26,16 +26,15 @@ function st_plot_isi( handles )
     selectedTrials = handles.trials(pts);
     uID = unique( selectedIDs );
     uTrials = unique( selectedTrials );
+    
     for id = uID
-        prob = 0;
-        counter = 0;
+        isi = [];
         for trial = uTrials
             thesePts = (selectedIDs == id & selectedTrials == trial);
-            prob = prob + histcounts( diff( handles.times(thesePts) ),edges,...
-                'Normalization','pdf' );
-            counter = counter + 1;
+            isi = [isi,diff( handles.times(thesePts) )];
         end
-        h = stairs( handles.isiplot,plotedges,prob/counter );
+        prob = histcounts( isi,edges,'Normalization','pdf' );
+        h = stairs( handles.isiplot,plotedges,prob );
         hold on;
         set( h,'color',handles.allPlotColor(id+1,:) );
     end

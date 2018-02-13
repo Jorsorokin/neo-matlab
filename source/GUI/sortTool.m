@@ -135,7 +135,7 @@ function varargout = sortTool( varargin )
         handles.trials = nan;                           % n-dim vector used for plotting rasters
         handles.mask = nan;                             % mask vector (see "double_flood_fill.m")
         handles.location = nan;                         % vector specifying (x,y) location of each electrode
-        handles.nLocationDim = 0;                      % the number of location dimensions
+        handles.nLocationDim = 0;                       % the number of location dimensions
         handles.selectedPoints = nan;                   % points highlighted on the projection plot
         handles.manualClust = {};                       % will be added to while with manual cluster assignment
         handles.rotationDim = 1;                        % the dimension to rotate over
@@ -206,15 +206,22 @@ function varargout = sortTool( varargin )
         handles.data = p.data;
         if any( ~isnan( gather( handles.data ) ) )
             handles.availableData = true;
-            handles.R.keptPts = true( 1,size( handles.data,2 ) );
+            nPoints = size( handles.data,2 );
         end
         
         handles.projection = p.projection;
         if any( ~isnan( gather( handles.projection ) ) )
             handles.availableProjection = true;
-            if any( isnan( handles.R.keptPts ) )
-                handles.R.keptPts = true( 1,size( handles.projection,1 ) );
-            end
+            
+            % create the plotting matrices
+            [nPoints,handles.nDim] = size( handles.projection );
+            handles.plotDims = zeros( handles.nDim,2 );
+            handles.plotDims(1,1) = 1; handles.plotDims(2,2) = 1;
+            handles.loadingMatrix = handles.plotDims;
+        end
+        
+        if any( [handles.availableData,handles.availableProjection] )
+            handles.R.keptPts = true( 1,nPoints );
         end
         
         handles.labels = p.labels;

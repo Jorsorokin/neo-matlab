@@ -357,7 +357,7 @@ classdef ChannelIndex < Container
             
             % check to make sure the supplied neuronIDs (if provided) exist
             % within this channelindex. If not, end the function.
-            if isnan( p.neuronID )
+            if isempty( p.neuronID )
                 p.neuronID = [neurons.ID];
             else
                 if ~any( ismember( [neurons.ID],p.neuronID ) )
@@ -390,8 +390,9 @@ classdef ChannelIndex < Container
             
             % pull out spike features
             if isempty( p.features )
-                [features,~,mapping] = compute_spike_features( spsnips,p.level,p.projMethod,...
-                                                            mask,self.chanDistances,1 );
+                [features,~,mapping] = compute_spike_features( permute( spsnips,[2,1,3] ),...
+                                                               p.level,p.projMethod,...
+                                                               mask,self.chanDistances,1 );
             else
                 features = p.features;
                 mapping = [];
@@ -401,30 +402,40 @@ classdef ChannelIndex < Container
             [labels,model] = sort_clusters( features,p.init,p.sortMethod,...
                         'mask',mask,'eps',p.eps,'neighbors',p.nNeighbors,...
                         'minclustsize',p.minclustsize,'kernelWeighting',true,...
-                        outlierThresh,'p.reject' );
+                        'outlierthresh',p.reject );
             
             % call an instance of the sortTool GUI if requested
             if p.useGUI
-                [labels,features,model] = sortTool( 'data',single( spsnips ),'projection',single( features ),...
+                [labels,features,R] = sortTool( 'data',single( spsnips ),'projection',single( features ),...
                                                 'times',single( sptm ),'mask',single( mask ),...
                                                 'trials',single( epochnum ),'labels',labels );
-                p.projMethod = model.projMethod;
-                mapping = model.mapping;
+                
+                if ~any( isnan( R.mapping ) )
+                    p.projMethod = model.projectMethod;
+                    mapping = R.mapping;
+                end
+                if isfield( R,'sortModel' )
+                   model = R.sortModel;
+                end
             end
-
+            
+            % get vars from the model
+            if ~isfield( model,'probabilities' )
+                model.probabilities = [];
+            end
+            
             % =============================================================
             
             % create our new neurons / eliminate old ones
             self.create_new_neurons( spsnips,sptm,epochnum,p.neuronID,labels,...
-                features,model.probabilities,p.projMethod,...
-                model.sortModel,mapping,mask );
+                features,model.probabilities,p.projMethod,model,mapping,mask );
             
             % HELPER FUNCTION
             function p = check_inputs( inputs )
                 pnames = {'projMethod','init','level','reject',...
                     'features','neuronID','sortMethod','nNeighbors',...
-                    'eps','minclustsize'};
-                defaults = {'PCA',2,5,.9,[],[],'EM-GMM',5,0.1,5};
+                    'eps','minclustsize','useGUI'};
+                defaults = {'PCA',2,5,.9,[],[],'EM-GMM',5,0.1,5,false};
 
                 p = inputParser;             
                 for j = 1:numel(pnames)
