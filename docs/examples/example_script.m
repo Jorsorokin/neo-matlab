@@ -62,11 +62,6 @@ block.addChild( channelindex );
 block.addChild( electrode );
 block.print(); % calling block.print() also calls block.update()
 
-% at this point, we could write our block to disk for safe keeping. To do
-% so, you would provide an output directory, and call "block.write( outdir )".
-% By default, the block oject writes to a file with the same name as
-% "block.filename", and appended with "_extractedData.mat"
-
 %% Part 2: detecting spikes and sorting using the GUI
 
 % we will use the "double_flood_fill.m" algorithm, developed for
@@ -114,8 +109,6 @@ channelindex.sortSpikes( 'projMethod',projectionMethod,...
                          'minclustsize',minClustSize,...
                          'useGUI',useGUI );
                      
-
-
 % (c) resample the raw data since we don't need high sampling-rate as we've
 % detected spikes already. This helps save space when saving the block
 % object to disk!!!
@@ -171,3 +164,19 @@ for j = 1:2
     subplot( 1,2,j );
     block.getChild( 'Epoch',j ).plotSignals();
 end
+
+%% Part 4: Saving
+
+% to save the block, simply type "block.write( outdir )" with "outdir"
+% replaced by the folder of your choice. Since the block contains all the
+% other object's as children or sub-children, these get saved along with the
+% parent block object
+outdir = pwd;
+block.write( outdir ); % the saved filename is the name in "block.filename", appended with "_extracteData.mat"
+
+% one could optionally save the spike waveforms separately before saving
+% the block, IF you don't need to access the raw waveforms. This can help
+% save a lot of space and increase speed reading/writing block objects for
+% future analyses
+%   spikeDir = [outdir,filesep,'spike_waveforms'];
+%   block.saveSpikeWaveforms( spikedir );
