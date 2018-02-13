@@ -1,6 +1,5 @@
 % mNEO Example
 % Jordan Sorokin, 2/11/2018
-% For the Giocomo lab
 
 %% Part 1: building a hierarchy from a multi-channel recording
 
