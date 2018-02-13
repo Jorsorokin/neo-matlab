@@ -1,11 +1,10 @@
 % mNEO Example
 % Jordan Sorokin, 2/11/2018
-% For the Giocomo lab
 
 %% Part 1: building a hierarchy from a multi-channel recording
 
 % (a) create a block object to start the hierarchy
-filePath = 'Z:\matlabscripts\SpikeSorting\example_data.mat';
+filePath = pwd; 
 name = 'mouse1_rec1';
 date = '2017-02-20';
 condition = 'baseline';

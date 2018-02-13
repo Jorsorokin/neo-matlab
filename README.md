@@ -81,5 +81,5 @@ For further information on using this package for data extraction and organizati
 - [ ] dealing with different sorting parameters when updating the sortModel property of the Neuron object
 - [X] function for online sorting / assigning new spikes to current Neuron objects [wMSC.m](source/Functions/clustering/wMSC.m) & [HDBSCAN](https://github/Jorsorokin/HDBSCAN)
 - [ ] interfacing with SQL for memory-efficient loading/saving and smart querying (SQLite?)
-- [X] incorporating HDBSCAN into the sortTool GUI (see [HDSBCAN repo](https://github/Jorsorokin/HDBSCAN))
+- [X] incorporating HDBSCAN into the sortTool GUI (see [HDSBCAN repo](https://github.com/Jorsorokin/HDBSCAN))
 - [X] incorporating automatic cluster refinement & cluster quality measurement into sortTool GUI
