@@ -408,7 +408,8 @@ classdef ChannelIndex < Container
             if p.useGUI
                 [labels,features,R] = sortTool( 'data',single( spsnips ),'projection',single( features ),...
                                                 'times',single( sptm ),'mask',single( mask ),...
-                                                'trials',single( epochnum ),'labels',labels );
+                                                'trials',single( epochnum ),'labels',labels,...
+                                                'location',self.chanDistances );
                 
                 if isstruct( R.mapping )
                     p.projMethod = R.projectMethod;

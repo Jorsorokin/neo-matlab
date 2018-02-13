@@ -54,7 +54,10 @@ end
 channelindex = ChannelIndex( 1 ); 
 channelindex.addChild( electrode ); % note, we can add ALL of the electrodes at once. In fact, we can do this for any object
 channelindex.name = 'shank 1'; % first shank of the silicon probe. Could also call this "tetrode 1" if using tetrodes
-channelindex.chanDistances = [450,500,400,350,300,250,200,150,100,50,25,125,225,325,425,525]; % the UNORDERED y-distance on the shank
+
+% let's add the actual location of the electrodes on the shank, and a
+% mapping that is used internally to re-order the raw data during spike detection
+channelindex.chanDistances = [450,500,400,350,300,250,200,150,100,50,25,125,225,325,425,525]'; % the UNORDERED y-distance on the shank
 [~,channelindex.chanMap] = sort( channelindex.chanDistances ); % ordered according to decreasing distance from shank tip
 
 % finally add to the block and update the block. You will see that its
