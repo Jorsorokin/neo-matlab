@@ -1,10 +1,11 @@
 % mNEO Example
 % Jordan Sorokin, 2/11/2018
+% For the Giocomo lab
 
 %% Part 1: building a hierarchy from a multi-channel recording
 
 % (a) create a block object to start the hierarchy
-filePath = pwd; 
+filePath = 'C:\Users\Jordan\Documents\GitHub\neo-matlab\docs\examples\example_data.mat';
 name = 'mouse1_rec1';
 date = '2017-02-20';
 condition = 'baseline';
@@ -23,10 +24,12 @@ inds = arrayfun( @(x)(timestamps > x-5 & timestamps <= x+5),epochTimes,'un',0 );
 
 % (c) create the Epochs, ChannelIndex, Electrodes, and Signals
 epoch(1) = Epoch( epochTimes(1)-epochWindow,epochTimes(1)+epochWindow,1 ); 
-epoch(1).name = 'epoch 1'; % you could assign any unique name that you wanted
+epoch(1).name = 'epoch 1';          % you could assign any unique name that you wanted
+epoch(1).addEvent( epochTimes(1) ); % this is optional
 
 epoch(2) = Epoch( epochTimes(2)-epochWindow,epochTimes(2)+epochWindow,2 );
-epoch(2).name = 'epoch 2'; % ditto
+epoch(2).name = 'epoch 2'; 
+epoch(2).addEvent( epochTimes(2) );
 
 % loop over channels
 nChans = size( data,2 );
@@ -34,11 +37,10 @@ for ch = 1:nChans
     electrode(ch) = Electrode( ch ); % the electrode number
     electrode(ch).name = 'this is an electrode'; % optional name again
     
-    
     for ep = 1:numel( epochTimes )
         
         % pull out data for epoch(ep) and data(ch)
-        signal = Signal( data(inds{ep},ch),fs );
+        signal = Signal( double( data(inds{ep},ch) ),fs );
         
         % add this signal to the correspoinding epoch and electrode parent
         epoch(ep).addChild( signal );
@@ -52,6 +54,8 @@ end
 channelindex = ChannelIndex( 1 ); 
 channelindex.addChild( electrode ); % note, we can add ALL of the electrodes at once. In fact, we can do this for any object
 channelindex.name = 'shank 1'; % first shank of the silicon probe. Could also call this "tetrode 1" if using tetrodes
+channelindex.chanDistances = [450,500,400,350,300,250,200,150,100,50,25,125,225,325,425,525]; % the UNORDERED y-distance on the shank
+[~,channelindex.chanMap] = sort( channelindex.chanDistances ); % ordered according to decreasing distance from shank tip
 
 % finally add to the block and update the block. You will see that its
 % parameters have changed, indicating the # of channelindex, electrodes,
@@ -111,11 +115,11 @@ channelindex.sortSpikes( 'projMethod',projectionMethod,...
 % (c) resample the raw data since we don't need high sampling-rate as we've
 % detected spikes already. This helps save space when saving the block
 % object to disk!!!
-p = 1;
-q = 30; % resamples the signal by p/q...so sampling rate becomes 1 kHz
-for ch = 1:block.nElectrodes
-    block.getChild( 'Electrode',ch ).resampleSignals( p,q );
-end
+%p = 1;
+%q = 30; % resamples the signal by p/q...so sampling rate becomes 1 kHz
+%for ch = 1:block.nElectrodes
+%    block.getChild( 'Electrode',ch ).resampleSignals( p,q );
+%end
 
 % (d) Print out the block again, and see how many neurons are now in the ChannelIndex object
 block.print();
@@ -135,20 +139,19 @@ for j = 1:6
 end
 
 % PSTH
-neurons(4).psth(5,2,4,40);
+neurons(4).psth(5,2,3,40);
 
 % CUMULATIVE RASTER
 figure; hold on
-for j = 2:numel( neurons )
-    [~,sptm] = neurons(j).getSpikes( 1 ); % pull out the spike times for first epoch only
-    nSp = numel( sptm );
-    scatter( sptm,ones( 1,nSp )*j,'.' ); % plot raster of spike times
+spikes = block.getChild( 'Epoch',1 ).getChild( 'Spikes' ); % each spikes object references the spikes of one neuron for this epoch 
+for j = 1:block.nUnits
+    scatter( spikes(j).times,ones( 1,spikes(j).nSpikes )*j,'.' ); % plot raster of spike times
 end
 ylabel( 'neurons' );
 xlabel( 'time (s)' );
 title( 'all neurons, epoch 1' );
 darkPlot(gcf); % change the format of the figure
-set( gca,'ylim',[1,block.nUnits+1] );
+set( gca,'ylim',[0,block.nUnits+1] );
 
 % RAW SPIKE WAVEFORMS
 figure;
