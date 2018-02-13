@@ -249,9 +249,9 @@ classdef Neuron < Container
             % plot a histogram of the spike times
             if exist( 'bw','var' )
                 [N,edges] = histcounts( ISI,'binwidth',bw,...
-                    'Normalization','countdensity' );
+                    'Normalization','probability' );
             else
-                [N,edges] = histcounts( ISI,'Normalization','countdensity' );
+                [N,edges] = histcounts( ISI,'Normalization','probability' );
             end
             s = stairs( edges(2:end),N );
             set( s,'color',[0.85 0.85 0.85] );
@@ -283,7 +283,7 @@ classdef Neuron < Container
             % plot the raster according to the pre/post time and starting
             % time provided
             PlotRasters( sptm,start,pre,post );
-            suptitle( sprintf( 'Neuron %i, ChannelIndex %i',...
+            title( sprintf( 'Neuron %i, ChannelIndex %i',...
                                 self.ID,self.chanInd ) );
         end
         

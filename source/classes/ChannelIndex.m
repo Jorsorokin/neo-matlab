@@ -410,12 +410,14 @@ classdef ChannelIndex < Container
                                                 'times',single( sptm ),'mask',single( mask ),...
                                                 'trials',single( epochnum ),'labels',labels );
                 
-                if ~any( isnan( R.mapping ) )
-                    p.projMethod = model.projectMethod;
+                if isstruct( R.mapping )
+                    p.projMethod = R.projectMethod;
                     mapping = R.mapping;
                 end
                 if isfield( R,'sortModel' )
                    model = R.sortModel;
+                else
+                    model = [];
                 end
             end
             

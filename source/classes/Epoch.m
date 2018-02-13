@@ -394,9 +394,7 @@ classdef Epoch < Container
             
             % set up plotting parameters
             nChIdx = numel( sig ); % number of Signal objects (grouped channels)
-            figure; hold on;
-            %cmap = colormap( parula( nChIdx ) );
-            
+                        
             % get noise estimate average
             noise = 0;
             for chidx = 1:nChIdx
