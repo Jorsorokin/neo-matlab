@@ -114,11 +114,11 @@ end
 
 
 % Now compute the histogram edges with the optimal BW or provided BW
-edge = EdgeCalculator(bw,-pre_time*1000,lastBin); % extract edges for psth
+nBins = round( (lastBin + pre_time*1000) / bw );
+[~,edge] = discretize( -pre_time*1000:lastBin,nBins ); % extract edges for psth
 xmin = edge(1); % for plotting
 xmax = edge(end); % for plotting
 xlim = [xmin xmax];
-
 
 % ======= begin loop =======
 disp('calculating PSTHs...');
@@ -130,12 +130,7 @@ try
          ISI = zeros(numel(edge),ntrials,nchans);
          for ch = 1:nchans
              sptm = SpikeTimes{ch};
-             
-             [psthTemp,isiTemp] = bin_spikes(sptm,ntrials,pre_time,post_time,start,edge,bw);
-            
-             psth(:,:,ch) = psthTemp; 
-             ISI(:,:,ch) = isiTemp;
-             clear psthTemp isiTemp
+             [psth(:,:,ch),ISI(:,:,ch)] = bin_spikes(sptm,ntrials,pre_time,post_time,start,edge,bw);
          end
     else % if not a cell array
         [psth,ISI] = bin_spikes(SpikeTimes,ntrials,pre_time,post_time,start,edge,bw);
@@ -292,9 +287,7 @@ end
 % FANO FACTOR CALCULATION VIA SPIKE RATE FLUCTUATION
 function [variance,FF,psthAvg] = compute_fanofactor(psth)
     psthAvg = mean(psth,2); % take mean across trials, squeeze into nxchan array
-    variance = (bsxfun(@minus,psthAvg,psth)).^2;
-    variance = squeeze(mean(variance,2));
-    psthAvg = squeeze(psthAvg);
+    variance = std( psth,[],2 );
     FF = variance ./ psthAvg;
 end
 
