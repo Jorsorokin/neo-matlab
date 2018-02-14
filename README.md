@@ -79,7 +79,11 @@ For further information on using this package for data extraction and organizati
 - [X] functions for clustering via Variational Bayes and EM-TMM in the sortTool GUI
 - [ ] method for visualizing the current heirarchy in the Block object (i.e. [connected graph](http://mathworld.wolfram.com/ConnectedGraph.html))
 - [ ] dealing with different sorting parameters when updating the sortModel property of the Neuron object
-- [X] function for online sorting / assigning new spikes to current Neuron objects [wMSC.m](source/Functions/clustering/wMSC.m) & [HDBSCAN](https://github/Jorsorokin/HDBSCAN)
+- [ ] function for online sorting / assigning new spikes to current Neuron objects [wMSC.m](source/Functions/clustering/wMSC.m) & [HDBSCAN](https://github/Jorsorokin/HDBSCAN)
 - [ ] interfacing with SQL for memory-efficient loading/saving and smart querying (SQLite?)
 - [X] incorporating HDBSCAN into the sortTool GUI (see [HDSBCAN repo](https://github.com/Jorsorokin/HDBSCAN))
 - [X] incorporating automatic cluster refinement & cluster quality measurement into sortTool GUI
+- [ ] automatic rejection of clusters via cluster-quality thresholding (let users grab the threshold and slide it)
+- [ ] padding of data outside of the range of the epochs with NaNs
+- [ ] single-electrode referencing for spike detection 
+- [ ] easily incorporated user-defined function for aligning action potentialss

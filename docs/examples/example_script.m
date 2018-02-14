@@ -19,7 +19,7 @@ block.print(); % print's some info to the screen about this block/recording
 epochTimes = [12, 28]; % seconds 
 epochWindow = 5; % seconds, to extract around the epochTimes
 load( filePath ); % load's in the data matrix
-timestamps = (1:size( data,1 ))/fs;
+timestamps = (1:size( data,1 )) / fs;
 inds = arrayfun( @(x)(timestamps > x-5 & timestamps <= x+5),epochTimes,'un',0 ); % indicies to extract for each epoch
 
 % (c) create the Epochs, ChannelIndex, Electrodes, and Signals
@@ -40,7 +40,7 @@ for ch = 1:nChans
     for ep = 1:numel( epochTimes )
         
         % pull out data for epoch(ep) and data(ch)
-        signal = Signal( double( data(inds{ep},ch) ),fs );
+        signal = Signal( data(inds{ep},ch),fs );
         
         % add this signal to the correspoinding epoch and electrode parent
         epoch(ep).addChild( signal );
@@ -78,9 +78,10 @@ block.print(); % calling block.print() also calls block.update()
 % traditional spike-detection may work equally well, and likely faster.
 
 % (a) detect spikes and inspect the results
-spikeThresh = 4; % x SD of the background
-artifactThresh = 700; % uV...likely to be noise / movement
-useMaskedDetection = true; % if false, then normal spike detection is used
+spikeThresh = 4;                % x SD of the background
+artifactThresh = 700;           % uV...likely to be noise / movement
+useMaskedDetection = true;      % if false, then normal spike detection is used
+
 channelindex.detectSpikes( spikeThresh,artifactThresh,useMaskedDetection );
 
 % now let's use "block.print()" to see the results
@@ -118,11 +119,11 @@ channelindex.sortSpikes( 'projMethod',projectionMethod,...
 % (c) resample the raw data since we don't need high sampling-rate as we've
 % detected spikes already. This helps save space when saving the block
 % object to disk!!!
-%p = 1;
-%q = 30; % resamples the signal by p/q...so sampling rate becomes 1 kHz
-%for ch = 1:block.nElectrodes
-%    block.getChild( 'Electrode',ch ).resampleSignals( p,q );
-%end
+p = 1;
+q = 30; % resamples the signal by p/q...so sampling rate becomes 1 kHz
+for ch = 1:block.nElectrodes
+    block.getChild( 'Electrode',ch ).resampleSignals( p,q );
+end
 
 % (d) Print out the block again, and see how many neurons are now in the ChannelIndex object
 block.print();
@@ -138,11 +139,11 @@ neurons = block.getNeurons(); % convenience method to get all Neurons in the blo
 figure;
 for j = 1:6
     subplot( 2,3,j )
-    neurons(j+1).raster(5,1,2); % 1 secs before, 2 secs after eventOnset
+    neurons(j+1).raster( 5,1,2 ); % 1 secs before, 2 secs after eventOnset
 end
 
 % PSTH
-neurons(4).psth(5,2,3,40);
+neurons(4).psth( 5,2,3,40 );
 
 % CUMULATIVE RASTER
 figure; hold on
@@ -153,7 +154,7 @@ end
 ylabel( 'neurons' );
 xlabel( 'time (s)' );
 title( 'all neurons, epoch 1' );
-darkPlot(gcf); % change the format of the figure
+darkPlot( gcf ); % change the format of the figure
 set( gca,'ylim',[0,block.nUnits+1] );
 
 % RAW SPIKE WAVEFORMS
