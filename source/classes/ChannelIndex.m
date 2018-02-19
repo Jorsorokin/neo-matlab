@@ -266,7 +266,8 @@ classdef ChannelIndex < Container
                         maxChan = floor( mean( sum( distMat <= 150 ) ) );
                     end
                     [spsnip,sptm,mask] = double_flood_fill( bsxfun( @minus,volt,mean( volt,2 ) ),fs,...
-                        self.chanMap,thresh/2,thresh,maxPts,maxChan,artifact );                
+                        'chanMap',self.chanMap,'lowThresh',thresh/2,'highThresh',thresh,...
+                        'maxPts',maxPts,'maxChan',maxChan,'artifact',artifact );                
                 end
                 clear volt
                 

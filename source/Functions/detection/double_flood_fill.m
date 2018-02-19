@@ -152,7 +152,7 @@ for j = 1:numSegs
         %       t_spike = SUM{ t * psi^p } / SUM{ psi^p }
         %   where "p" is a power-weighting that determines alignment on spike peak 
         %   or center of mass (inf or 1, respectively)
-        t_spike = sum( sum( bsxfun( @times,psi.^5,pt ) ) ) / sum( sum( psi.^5 ) );
+        t_spike = sum( sum( bsxfun( @times,psi.^10,pt ) ) ) / sum( sum( psi.^10 ) );
         closestPt = round( t_spike );
          
         % create our mask for the ith component as:
@@ -175,15 +175,11 @@ for j = 1:numSegs
         % skip this point if another channel in the connected component
         % has a large deflection within the pre/post time of this spike
         %       i.e. overlapping spikes
-        if any( abs( thisSpike(preSamples:preSamples+postSamples,ch) ) > max( abs( psi ) ) ) 
-            continue
+        if p.removeOverlap
+            if any( abs( thisSpike(preSamples:preSamples+postSamples,ch) ) > max( abs( psi ) ) ) 
+                continue
+            end
         end
-        
-        % skip if points not within the psi-range of the connected
-        % components have deflection greter than beta
-       % if any( thisSpike([1:preSamples,preSamples*2+postSamples:end],ch) < -beta )
-       %     continue
-       % end
         
         % add to our "spikes" matrix and update spike times and mask
         spikes(:,counter,p.chanMap) = thisSpike; % back into original channel order as supplied
@@ -214,40 +210,16 @@ sptimes = [sptimes{:}];
 mask = [mask{:}];
 
 %% HELPER FUNCTIONS
-function p = check_inputs()
-
-    nOptionals = numel( varargin );
-    if nOptionals >= 1 && ~isempty( varargin{1} )
-        p.chanMap = varargin{1};
-    else 
-        p.chanMap = 1:m;
+    function p = check_inputs()
+        names = {'chanMap','lowThresh','highThresh','maxPts','maxChans','artifact','removeOverlap'};
+        defaults = {1:m,2,4,inf,inf,inf,false};
+        
+        p = inputParser();
+        for j = 1:numel( names )
+            p.addParameter( names{j},defaults{j} );
+        end
+        
+        p.parse( varargin{:} );
+        p = p.Results;
     end
-    if nOptionals >= 2 && ~isempty( varargin{2} )
-        p.lowThresh = varargin{2};
-    else 
-        p.lowThresh = 2;
-    end
-    if nOptionals >= 3 && ~isempty( varargin{3} )
-        p.highThresh = varargin{3};
-    else 
-        p.highThresh = 4;
-    end
-    if nOptionals >= 4 && ~isempty( varargin{4} )
-        p.maxPts = varargin{4};
-    else
-        p.maxPts = inf;
-    end
-    if nOptionals >= 5 && ~isempty( varargin{5} )
-        p.maxChans = varargin{5};
-    else
-        p.maxChans = inf;
-    end
-    if nOptionals >= 6 && ~isempty( varargin{6} )
-        p.artifact = varargin{6};
-    else
-        p.artifact = inf;
-    end
-
-end
-
 end
