@@ -89,8 +89,12 @@ if concatenate
     
     % first perform 2D PCA for dimensionality reduction, which 
     % vastly speeds up the subsequent mapping
-    [~,~,proj] = pca2D( permute( X,[3,2,1] ),0.85 ); % 85 % variance explained
-    proj = reshape( proj,c*size( proj,2 ),n )';
+    if size( X,3 ) > 1
+        [~,~,proj] = pca2D( permute( X,[3,2,1] ),0.85 ); % 85 % variance explained
+        proj = reshape( proj,c*size( proj,2 ),n )';
+    else
+        proj = X;
+    end
 
     % compute the appropriate mapping on the reduced X
     switch method
