@@ -297,7 +297,7 @@ classdef Epoch < Container
             parentChanInd = [spikes.chanInd];
             channelindex = self.getSibling( 'ChannelIndex','Block' );
             channelindex = channelindex( ismember( [channelindex.chanIndNum],parentChanInd ));
-            electrodeNum = {channelindex.electrodes};
+            electrodeNum = {channelindex.channels};
             
             % create our anonymous functions for checking redundant spikes
             % ======================================================================
@@ -329,7 +329,7 @@ classdef Epoch < Container
                     % and continue if none found
                     nearbySpikes = checkA( allSpikeTimes,thisSpike ); 
                     sameElectrode = checkB( electrodeNum,electrodeNum{sp} );
-                    redundant = emptyCheck( cellfun( @times,sameElectrode,nearbySpikes ) );
+                    redundant = emptyCheck( cellfun( @times,sameElectrode,nearbySpikes,'un',0 ) );
                     if ~any( redundant(indices) )
                         t = t+1; % move onto next spike time
                         continue

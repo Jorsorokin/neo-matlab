@@ -16,10 +16,15 @@ function st_plot_clusterQuality( handles )
     ax.YLabel.String = [handles.sortOptions.clusterMetric,' score'];
     
     cla( ax );
-    clusts = unique( handles.labels );
+    clusts = handles.clusterIDs;
+    nClusts = numel( clusts );
     h = scatter( ax,clusts,handles.R.clusterQuality,...
                 repmat( 100,1,numel( handles.R.clusterQuality ) ),'.' );
-    h.CData = handles.allPlotColor(clusts+1,:);
+    color = zeros( nClusts,3 );
+    for i = 1:nClusts
+        color(i,:) = handles.plotcolor(find( handles.labels==clusts(i),1 ),:);
+    end
+    h.CData = color;
     ylim = [min( handles.R.clusterQuality )-1, max( handles.R.clusterQuality )+1];
     xlim = [min( handles.labels )-1, max( handles.labels )];
     set( ax,'ylim',ylim,'xlim',xlim );

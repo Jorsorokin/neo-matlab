@@ -70,7 +70,7 @@ function [labels,labelMap] = refine_clusters( X,labels,varargin )
 
             % try splitting the cluster. Update the label vector
             % if splitting was successful
-            newID = try_cluster_split( X_k',nDim );
+            newID = try_cluster_split( X_k' );
             if any( newID == 2 )
                 split(k) = true;
                 for j = 1:2

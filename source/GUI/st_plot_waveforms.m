@@ -7,7 +7,7 @@ function st_plot_waveforms( handles )
     
     % check if any data exists
     if ~handles.availableData
-        disp( 'No data available' );
+        fprinf( 'No data available\n' );
         return
     end
     
@@ -15,7 +15,7 @@ function st_plot_waveforms( handles )
     pts = handles.selectedPoints; % only plots selected (highlighted) points
     numNans = 1;
     if ~any( pts )
-        return;
+        return
     end
     
     % clear previous plot
@@ -23,11 +23,11 @@ function st_plot_waveforms( handles )
         cla( handles.waveformplot(c) );
     end
     
-    uID = unique( handles.labels(pts) );
+    uID = handles.clusterIDs( ismember( handles.clusterIDs,handles.labels(pts) ) );
     [nPt,~,nChan] = size( handles.data );
-    
     for i = uID
         idx = (handles.labels == i) & pts; 
+        color = handles.plotcolor( find( idx,1 ),: );
         nSp = sum( idx );
         totalPts = nPt*nSp + nSp*numNans; % extra points for nans
 
@@ -39,8 +39,7 @@ function st_plot_waveforms( handles )
         for c = 1:nChan
             bigline = reshape( [handles.data(:,idx,c);nan( numNans,nSp )],totalPts,1 ); 
             line( handles.waveformplot(c),time,bigline,...
-                'color',handles.allPlotColor(i+1,:),...
-                'linewidth',0.5 );
+                'color',color,'linewidth',0.5 );
         end
     end
 end

@@ -24,8 +24,9 @@ function st_plot_isi( handles )
     % loop over ids/trials
     selectedIDs = handles.labels(pts);
     selectedTrials = handles.trials(pts);
-    uID = unique( selectedIDs );
+    uID = handles.clusterIDs(handles.selectedClusts);
     uTrials = unique( selectedTrials );
+    nColors = size( handles.allPlotColors,1 );
     
     for id = uID
         isi = [];
@@ -36,6 +37,6 @@ function st_plot_isi( handles )
         prob = histcounts( isi,edges,'Normalization','pdf' );
         h = stairs( handles.isiplot,plotedges,prob );
         hold on;
-        set( h,'color',handles.allPlotColor(id+1,:) );
+        set( h,'color',handles.allPlotColor(min( id,mod( id,nColors ) )) );
     end
 end

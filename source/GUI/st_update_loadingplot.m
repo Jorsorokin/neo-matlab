@@ -2,7 +2,7 @@ function st_update_loadingplot( handles,axis )
     % updates the loading plot with each new projection viewpoint
     
     % check if loading plot is open
-    if isempty( handles.loadingplot )
+    if isempty( handles.loadingplot ) || ~isvalid( handles.loadingplot )
         return
     end
     

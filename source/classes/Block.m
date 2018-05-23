@@ -241,7 +241,7 @@ classdef Block < Container
                 addpath( outpath );
             end
             
-            disp( 'Writing the Block to disk...' );
+            fprintf( 'Writing the Block to disk...\n' );
             
             self.update(); % update the num channels/epochs/units
             eval( ['block' '=self'] ); % makes variable "block" reference "self"

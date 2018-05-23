@@ -125,22 +125,29 @@ function varargout = sortTool( varargin )
             'Label','Load',...
             'CreateFcn',@loaddata_OpeningFcn );
         
-        % set up user-defined variables in the handles structure
+        % set up data parameters
         handles.data = nan;                             % the waveforms
         handles.availableData = false;                  % to avoid "gathering" gpuArray for each logical check
         handles.times = nan;                            % for plotting rasters/ISI
         handles.projection = nan;                       % the projection using the "projectMethod"    
-        handles.availableProjection = false;            % to avoid "gathering" gpuArray for each logical check
         handles.labels = nan;                           % previous sorting labels
         handles.trials = nan;                           % n-dim vector used for plotting rasters
         handles.mask = nan;                             % mask vector (see "double_flood_fill.m")
         handles.location = nan;                         % vector specifying (x,y) location of each electrode
         handles.nLocationDim = 0;                       % the number of location dimensions
         handles.selectedPoints = nan;                   % points highlighted on the projection plot
+        handles.selectedClusts = nan;                   % used for getting colors
         handles.manualClust = {};                       % will be added to while with manual cluster assignment
+        handles.clusterIDs = uint8( 0 );
+        
+        % set up projection parameters
+        handles.availableProjection = false;            % to avoid "gathering" gpuArray for each logical check
         handles.rotationDim = 1;                        % the dimension to rotate over
         handles.rotationAngle = 0.1;                    % radians to rotate by
-        handles.nDim = 3;                               % defaults to 3D projection 
+        handles.arrows = [1 0; -1 0; 0 1; 0 -1];        % arrow positions for projection navigator
+        handles.axis = [1 1 2 2];                       % axis (horizontal, vertical) for navigator
+        handles.directions = [1 -1 1 -1];               % directions (left,right,up,down) for navigator
+        handles.concatChans = false;                    % for concatenating channels or not for dim redux
         
         % set up sorting parameters
         handles.sortOptions.searchForK = 0;             % cluster # searching
@@ -195,9 +202,6 @@ function varargout = sortTool( varargin )
                                  [0.90, 0.7, 0.7];...   % light red         (19)
                                  [0.15, 0.15, 0.5];...  % dark blue         (20)
                                 ];
-                                
-        % repeat colors in case we have many identified neurons
-        handles.allPlotColor = [handles.allPlotColor; repmat( handles.allPlotColor(2:end,:),12,1 )]; 
         handles.plotcolor = nan;    
         
         % GET THE OPTIONAL INPUTS
@@ -237,6 +241,9 @@ function varargout = sortTool( varargin )
         % get the selectedPoints if data available
         if ~isnan( handles.labels )
             handles.selectedPoints = false( 1,numel( handles.labels ) );
+            handles.labels = uint8( handles.labels );
+            handles.clusterIDs = unique( handles.labels );
+            handles.selectedClusts = false( 1,numel( handles.clusterIDs ) );
             if any( isnan( handles.R.keptPts ) )
                 handles.R.keptPts = true( 1,numel( handles.labels ) );
             end
@@ -363,6 +370,14 @@ function varargout = sortTool( varargin )
         
         guidata( mainFig,handles );
         
+        
+    function keyPress_Callback( hObject,eventdata,handles )
+        switch eventdata.Key
+            case 'leftarrow'
+                selectPrevClust( hObject,handles );
+            case 'rightarrow'
+                selectNextClust( hObject,handles );
+        end
 
     %% ================ loading & projections ================
     
@@ -479,7 +494,20 @@ function varargout = sortTool( varargin )
         % projects waveforms using the chosen mapping method
 
         % do the projections
+        nDim = findobj( hObject.Parent,'tag','nDim' );
+        nDim = str2double( nDim.String );
+        if isnan( nDim )
+            fprintf( 'Please specify # of dimensions to project onto\n' );
+            return
+        elseif nDim > size( handles.data,2 )
+            fprintf( '# of Dimensions must be < # of data points\n' );
+            return
+        else
+            handles.nDim = nDim;
+        end
+            
         [handles.projection,handles.R.mapping] = st_project_data( handles );
+        handles.nDim = size( handles.projection,2 ); 
         handles.availableProjection = true;
         
         % update the projection viewer based on the # of
@@ -506,23 +534,20 @@ function varargout = sortTool( varargin )
 
         % update the GUI
         guidata( hObject, handles );
-
-
-    % --- Executes during object creation, after setting all properties.          
-    function nDim_CreateFcn(hObject, eventdata, handles)
-
-        if ispc && isequal(get(hObject,'BackgroundColor'), get(0,'defaultUicontrolBackgroundColor'))
-            set(hObject,'BackgroundColor','white');
-        end
-        set( hObject,'String',3 ); % default = 3
-        guidata( hObject,handles );
         
 
     function nDim_Callback(hObject, eventdata, handles)
         % specifies the number of dimensions to project onto using the specified mapping method
-  
+
         handles.nDim = str2double( get( hObject,'String' ) );
         guidata( hObject,handles );    
+        
+    
+    function concatChans_Callback( hObject,eventdata,handles )
+        % sets the flag to concatenates channels before dim redux or not
+        
+        handles.concatChans = hObject.Value;
+        guidata( hObject,handles )
     
         
     %% ================ plotting procedures ================
@@ -554,19 +579,16 @@ function varargout = sortTool( varargin )
         end
         
         % check where the user clicked
-        arrows = [1 0; -1 0; 0 1; 0 -1];
-        axis = [1 1 2 2];
-        directions = [1 -1 1 -1];
         mousePos = eventdata.IntersectionPoint(1:2);
-        [~,closestArrow] = min( pdist2( mousePos,arrows ) );
+        [~,closestArrow] = min( compute_pairwise_dist( mousePos,handles.arrows ) );
         
         % change the value of the handles.plotDim variable depending 
         % on which dimension we are rotating over, and which direction
         % (left/right vs. up/down)   
         loadingMatrix = handles.loadingMatrix;
-        rotationAxis = axis(closestArrow);
+        rotationAxis = handles.axis(closestArrow);
         rotationValue = loadingMatrix(handles.rotationDim,rotationAxis);
-        rotationAmnt = handles.rotationAngle * directions(closestArrow);
+        rotationAmnt = handles.rotationAngle * handles.directions(closestArrow);
         rotationValue = rotationValue + rotationAmnt;
         handles.loadingMatrix(handles.rotationDim,rotationAxis) = rotationValue;
         handles.plotDims = sin( handles.loadingMatrix );
@@ -625,7 +647,7 @@ function varargout = sortTool( varargin )
         % resets the loadings so that the first and second dimensions are 
         % plotted completely onto the x-axis / y-axis 
         
-        handles.plotDims(:) = 0;
+        handles.plotDims = 0*handles.plotDims;
         handles.plotDims(1,1) = 1;
         handles.plotDims(2,2) = 1;
         handles.loadingMatrix = handles.plotDims;
@@ -635,12 +657,27 @@ function varargout = sortTool( varargin )
         st_update_loadingplot( handles,1 );
         st_update_loadingplot( handles,2 );
         guidata( hObject,handles );
+        
+        
+    function randomizeProjections_callback( hObject,eventdata,handles )
+        % projects the high dimensional data onto the two dimensional
+        % figure using a random projection of the features
+        
+        nDims = size( handles.plotDims,1 );
+        handles.plotDims = rand( nDims,2 )*2 - 1;
+        handles.loadingMatrix = handles.plotDims;
+        
+        % update the scatter
+        st_update_scatter( handles )
+        st_update_loadingplot( handles,1 );
+        st_update_loadingplot( handles,2 );
+        guidata( hObject,handles );
                 
         
     function selectdata_Callback(hObject, eventdata, handles)
         % allows user to select individual data points in the main plot  
 
-        if ~handles.availableData && ~handles.availableProjection
+        if ~handles.availableProjection
             return
         end
 
@@ -656,6 +693,7 @@ function varargout = sortTool( varargin )
         
         % plot the selected points
         handles.selectedPoints(pts) = true;
+        handles.selectedClusts(ismember( handles.clusterIDs,handles.labels(pts) )) = true;
         st_plotSelectedData( handles );
         
         % update 
@@ -667,7 +705,7 @@ function varargout = sortTool( varargin )
     function selectclust_Callback(hObject,eventdata,handles)
         % allows user to select individual clusters in the main plot
 
-        if ~handles.availableData && ~handles.availableProjection
+        if ~handles.availableProjection
             return
         end
         
@@ -683,19 +721,91 @@ function varargout = sortTool( varargin )
         
         % plot selected cluster
         handles.selectedPoints(pts) = true;
+        handles.selectedClusts(ismember( handles.clusterIDs,handles.labels(pts(1)) )) = true;
         st_plotSelectedData( handles );
         
         % update
         st_update_plots( handles );
         guidata( hObject,handles );
         
+        
+    function selectNextClust( hObject,handles )
+        % allows user to slect previous (sequentially) cluster
+        
+        if ~handles.availableProjection
+            return
+        end
+        
+        % check if points selected are all in one cluster and entire
+        % cluster is selected
+        allID = handles.clusterIDs;
+        uID = allID( handles.selectedClusts );
+        if numel( uID ) > 1 || any( handles.labels(~handles.selectedPoints) == uID )
+            return
+        end    
 
+        % deselect all points
+        st_clearSelectedData( handles );
+        handles.selectedPoints(handles.selectedPoints) = false;
+        
+        % select the next cluster
+        clustInd = strfind( allID,uID );
+        if clustInd == numel( allID )
+            clustInd = 0;
+        end
+        nextClust = allID(clustInd + 1);
+        handles.selectedPoints(handles.labels==nextClust) = true;
+        handles.selectedClusts(handles.selectedClusts) = false;
+        handles.selectedClusts(clustInd+1) = true;
+        
+        % update
+        st_plotSelectedData( handles );
+        st_update_plots( handles );
+        guidata( hObject,handles );
+        
+        
+    function selectPrevClust( hObject,handles )
+        % allows user to slect previous (sequentially) cluster
+        
+        if ~handles.availableProjection
+            return
+        end
+        
+        % check if points selected are all in one cluster and entire
+        % cluster is selected
+        allID = handles.clusterIDs;
+        uID = allID( handles.selectedClusts );
+        if numel( uID ) > 1 || any( handles.labels(~handles.selectedPoints) == uID )
+            return
+        end    
+        
+        % deselect all points
+        st_clearSelectedData( handles );
+        handles.selectedPoints(handles.selectedPoints) = false;
+        
+        % select the previous cluster
+        clustInd = strfind( allID,uID );
+        if clustInd == 1
+            clustInd = numel( allID ) + 1;
+        end
+        nextClust = allID(clustInd - 1);
+        handles.selectedPoints(handles.labels==nextClust) = true;       
+        handles.selectedClusts(handles.selectedClusts) = false;
+        handles.selectedClusts(clustInd - 1) = true;
+        
+        % update
+        st_plotSelectedData( handles );
+        st_update_plots( handles );
+        guidata( hObject,handles );
+        
+        
     % --- clears the manually-selected data on button press
     function cleardata_Callback(hObject, eventdata, handles)
 
         % clear all data selection
         st_clearSelectedData( handles );
         handles.selectedPoints(handles.selectedPoints) = false;
+        handles.selectedClusts(handles.selectedClusts) = false;
         
         % update
         guidata( hObject,handles );
@@ -713,10 +823,11 @@ function varargout = sortTool( varargin )
         end
         
         % update plotting colors for each data point
-        uID = unique( handles.labels );
-        for i = uID
-            idx = handles.labels==i;
-            colors(idx,:) = repmat( single( handles.allPlotColor(i+1,:) ),sum( idx ),1 ); % since uID==0 is first color
+        nColors = size( handles.allPlotColor,1 );
+        for i = handles.clusterIDs
+            idx = (handles.labels == i);
+            thisColor = min( i,mod( i,nColors ) );
+            colors(idx,:) = repmat( single( handles.allPlotColor(thisColor+1,:) ),sum( idx ),1 ); % since uID==0 is first color
         end
             
                
@@ -1011,17 +1122,20 @@ function varargout = sortTool( varargin )
         % change the labels to contain the original label plus consecutive
         % labels for each new cluster
         labels = uint8( labels );
-        handles.labels = uint8( handles.labels );
-        uID = unique( handles.labels );
+        uID = handles.clusterIDs;
         if any( uID > 0 )
             if ~any( handles.selectedPoints )
-                labels = labels + min( uID(uID > 0) )-1; % subtract 1 to start with the minimum of the previous label
+                labels = labels + min( uID(uID > 0) ) - 1; % subtract 1 to start with the minimum of the previous label
             else
-                uID = unique( handles.labels(~pts) );
-                uID(uID==0) = [];
-                changeLabels = ismember( labels,uID );
-                if ~isempty( changeLabels ) && any( changeLabels )
-                    labels(changeLabels) = labels(changeLabels) - min( labels(changeLabels) ) + max( uID ) + 1; % creates new labels to avoid overlap 
+                prevClusts = ismember( uID,handles.labels(pts) );
+                if nnz( prevClusts ) == 1
+                    tempIDX = (labels == 1);
+                    labels(tempIDX) = uID(prevClusts);
+                    tempIDX = ~tempIDX & (labels > 0);
+                    labels(tempIDX) = labels(tempIDX)-1 + max( uID );
+                else
+                    tempIDX = (labels > 0);
+                    labels(tempIDX) = labels(tempIDX) + max(uID);
                 end
             end
         end
@@ -1033,6 +1147,7 @@ function varargout = sortTool( varargin )
         
         % update all probabilities and labels in the handles struct
         handles.labels(pts) = labels;
+        handles.clusterIDs = unique( handles.labels );
         handles = update_sortmodel( handles );
         handles.plotcolor = update_plot_colors( handles );
         st_update_plots( handles );
@@ -1040,6 +1155,49 @@ function varargout = sortTool( varargin )
         
         warning on;
     
+        
+    function refineClusts_Callback( hObject,eventdata,handles )
+        % dynamically split/merge clusters after sorting based on 
+        % chi-squared tests for chi-squared distributions of each cluster
+
+        % check if we've sorted
+        if any( isnan( handles.labels ) ) || all( handles.labels == 0 )
+            fprintf( 'Please sort clusters first\n' );
+            return
+        end
+
+        % try splitting clusters first       
+        fprintf( 'attempting to split clusters' );
+        uID = handles.clusterIDs(handles.clusterIDs > 0);
+        maxID = max( uID );
+        alpha = 0.05 / numel( uID ); % the corrected threshold for significance
+        for i = uID
+            fprintf( '.' );
+            inds = (handles.labels == i);
+            [newLabels,~,pval] = try_cluster_split( handles.projection(inds,:) );
+            if max( newLabels ) == 2 && pval < alpha
+                maxID = maxID + 1;
+                newInds = (newLabels == 2);
+                newLabels(newInds) = maxID;
+                newLabels(~newInds) = i;
+                handles.labels(inds) = newLabels;
+            end
+        end
+        fprintf( '\n' );
+        
+        % try merging clusters if try merge is true
+        if handles.sortOptions.tryMerge
+            fprintf( 'attempting to merge clusters...\n' );
+            merge = try_cluster_merge( handles.projection,handles.labels );
+        end
+        
+        % update plots
+        handles = update_sortmodel( handles );
+        handles.plotcolor = update_plot_colors( handles );
+        handles.clusterIDs = unique( handles.labels );
+        st_update_plots( handles );
+        guidata( hObject,handles );
+        
         
     % --- Executes on button press in manualsort
     function manualsort_Callback(hObject, eventdata, handles)
@@ -1074,7 +1232,7 @@ function varargout = sortTool( varargin )
     function newLabel_Callback(hObject, eventdata, handles)
         % manually select a new label by lasso-ing around data points
 
-        disp( 'Select a new cluster' );
+        fprintf( 'Select a new cluster\n' );
         axes( handles.mapplot );
 
         % draw lasso
@@ -1090,7 +1248,7 @@ function varargout = sortTool( varargin )
     function mergeLabel_Callback(hObject, eventdata, handles)
         % merges two clusters together 
 
-        disp( 'Click on two clusters to merge' );
+        fprintf( 'Click on two clusters to merge\n' );
         axes( handles.mapplot );
         
         % get the points and associated labels with each cluster
@@ -1168,6 +1326,7 @@ function varargout = sortTool( varargin )
         % get all new clusters and the points belonging to them
         if sum( ~cellfun( @isempty,handles.manualClust ) > 0 )
             scatterPoints = [handles.mapplot.Children(end).XData; handles.mapplot.Children(end).YData];
+            maxID = handles.clusterIDs(end);
             for i = 1:numel( handles.manualClust ) 
                 if isvalid( handles.manualClust{i} )
                     position = handles.manualClust{i}.getPosition;
@@ -1175,7 +1334,8 @@ function varargout = sortTool( varargin )
                                        position(:,1),position(:,2) );
 
                     % create a new label for each new additional label
-                    handles.labels(inpts) = max( handles.labels )+1;
+                    handles.labels(inpts) = maxID + 1;
+                    maxID = maxID + 1;
                 end
                 delete( handles.manualClust{i} );
             end
@@ -1192,35 +1352,7 @@ function varargout = sortTool( varargin )
         
         % update
         handles = update_sortmodel( handles );
-        handles.plotcolor = update_plot_colors( handles );
-        st_update_plots( handles );
-        guidata( hObject,handles );
-    
-
-    % --- Executes on button press in refineClusts
-    function refineClusts_Callback( hObject,eventdata,handles )
-        % dynamically split/merge clusters after sorting based on 
-        % chi-squared tests for chi-squared distributions of each cluster
-
-        % check for any data
-        if ~handles.availableData
-            disp( 'Cluster refinement requires raw data' );
-            return
-        end
-
-        % check if we've sorted
-        if any( isnan( handles.labels ) ) || all( handles.labels == 0 )
-            disp( 'Please sort clusters first' );
-            return
-        end
-
-        % run cluster refinement
-        nDim = 3;
-        tryMerge = handles.sortOptions.tryMerge;
-        handles.labels = uint8( refine_clusters( handles.data,handles.labels,handles.mask,tryMerge,nDim ) );
-
-        % update plots
-        handles = update_sortmodel( handles );
+        handles.clusterIDs = unique( handles.labels );
         handles.plotcolor = update_plot_colors( handles );
         st_update_plots( handles );
         guidata( hObject,handles );

@@ -162,7 +162,7 @@ classdef ChannelIndex < Container
         
         
         function detectSpikes( self,varargin )
-            % detectSpikes( self,(thresh,artifact,masked_detection) )
+            % detectSpikes( self,(thresh,artifact,masked_detection,whiten) )
             %
             % find spike waveforms from the analog signals contained in the child 
             % "Electrode" object. If no such child exists, end the function.
@@ -195,6 +195,8 @@ classdef ChannelIndex < Container
             %              (default = 1000)
             %   masked_detection - boolean indicating MTEO vs. masked spike detection
             %                      (default = false)
+            %   whiten - boolean flag to whiten the data (true) or not
+            %            (default = false)
             
             % check inputs
             if nargin > 1 && ~isempty( varargin{1} )
@@ -212,6 +214,11 @@ classdef ChannelIndex < Container
             else
                 masked_detection = false; % MTEO vs. masked detection
             end
+            if nargin > 4 && ~isempty( varargin{4} )
+                whiten = varargin{4};
+            else
+                whiten = false;
+            end
 
             % find all electrodes in this group
             electrodes = self.getChild( 'Electrode' );
@@ -221,56 +228,53 @@ classdef ChannelIndex < Container
             end
 
             % pull out the actual Signals & the total Epochs/Electrodes
-            signals = [];
-            for j = 1:self.nElectrodes
-                signals = [signals,electrodes(j).getChild( 'Signal' )]; 
-            end
-
-            % get their epochs 
-            epochNums = [signals.epoch]; 
-            if any( isnan( epochNums ) ) % i.e. no Epoch class instances
-                epochNums = 1:numel( signals );
-            end
-            uniqueEpochs = unique( epochNums );
+            signals = self.getSignals();
+            epochs = self.getSibling( 'Epoch','Block' );
+            parentEpochs = [signals.epoch];
+            nEpochs = numel( epochs );
             
             % create a Neuron class if one doesn't exist for the current channelindex
-            N = self.getChild( 'Neuron' );
-            if ~isempty( N )
+            prevNeuron = self.getChild( 'Neuron' );
+            if ~isempty( prevNeuron )
                 self.removeChild( 'Neuron' );
             end
-            self.addChild( Neuron( 0 ) ); % zero-ID neuron indicates pre-sorting / non-sorted
+            newNeuron = Neuron( 0 ); % zero-ID neuron indicates pre-sorting / non-sorted
 
+            % variables for detection
+            fs = signals(1).fs; % assumes signal sampling rates are equal
+            chanDist = self.chanDistances;
+            map = self.chanMap;
+            if ~isempty( chanDist )
+                distMat = pdist2( chanDist,chanDist );
+                maxChan = floor( mean( sum( distMat <= 250 ) ) );
+            else
+                maxChan  = [];
+            end
+            
             % Spike Detection
             % ==================================================================
-            fprintf( 'Detecting spikes across epochs' )
-
-            for ep = 1:numel( uniqueEpochs )
+            fprintf( 'Detecting spikes' )
+            for ep = 1:nEpochs
                 fprintf( '.' );
                 
                 % get the voltage traces associated with the current epoch & filter for spike
-                thisEpoch = ismember( epochNums,uniqueEpochs( ep ));
-                fs = signals(find( thisEpoch,1 )).fs;
-                volt = filtfilt2( [signals(thisEpoch).voltage],300,0,fs );             
+                associatedSignals = ismember( parentEpochs,epochs(ep).epochNum );
+                volt = filtfilt2( [signals(associatedSignals).voltage],300,6000,fs );         
                 
                 % detect the spikes
                 if ~masked_detection
                     [sptm,spsnip] = detectSpikes( volt,fs,thresh,1,artifact );
                     mask = [];
                 else
-                    maxPts = floor( 0.001 * fs ); % anything > 1ms is an artifact or overlapping spike
-                    maxChan = [];
-
-                    % get channel distance matrix to find # of channels within 150um of one another
-                    if ~isempty( self.chanDistances )
-                        distMat = pdist2( self.chanDistances,self.chanDistances );
-                        maxChan = floor( mean( sum( distMat <= 150 ) ) );
+                    maxPts = floor( 0.0015 * fs ); % anything > 1ms is an artifact or overlapping spike
+                    if size( volt,2 ) > 16
+                        volt = volt - mean( volt,2 );
                     end
-                    [spsnip,sptm,mask] = double_flood_fill( bsxfun( @minus,volt,mean( volt,2 ) ),fs,...
-                        'chanMap',self.chanMap,'lowThresh',thresh/2,'highThresh',thresh,...
-                        'maxPts',maxPts,'maxChan',maxChan,'artifact',artifact );                
+                    [spsnip,sptm,mask] = double_flood_fill( volt,fs,...
+                        'chanMap',map,'lowThresh',thresh/2,'highThresh',thresh,...
+                        'maxPts',maxPts,'maxChan',maxChan,'artifact',artifact,'whiten',whiten );                
                 end
-                clear volt
-                
+            
                 % create a "Spikes" object using the found spikes
                 Sp = Spikes( single( sptm/fs ),single( spsnip ),fs );
                 if nnz( mask ) / numel( mask ) <= 0.1
@@ -278,21 +282,21 @@ classdef ChannelIndex < Container
                 else
                     Sp.mask = single( mask );
                 end
-                self.getChild( 'Neuron' ).addChild( Sp );
                 
-                % get the Epoch if it exists
-                E = signals(find( thisEpoch,1 )).getParent( 'Epoch' );
-                if ~isempty( E )
-                    
-                    % find the previous spikes associated with all Neuron objects in this ChannelIndex
-                    allSpikes = E.getChild( 'Spikes' );
-                    for neuron = 1:numel( N )
-                        prevSpikeInds = find( ismember( allSpikes,N(neuron).getChild( 'Spikes' ) ) );                        
-                        E.removeChild( 'Spikes',prevSpikeInds ); % remove previous spikes
-                    end
-                    E.addChild( Sp ); % add the new spikes
+                % find the previous spikes associated with all Neuron objects in this ChannelIndex
+                prevSpikes = epochs(ep).getChild( 'Spikes' );
+                for neuron = 1:numel( prevNeuron )
+                    prevSpikeInds = find( ismember( prevSpikes,prevNeuron(neuron).getChild( 'Spikes' ) ) );                        
+                    epochs(ep).removeChild( 'Spikes',prevSpikeInds ); % remove previous spikes
                 end
+                epochs(ep).addChild( Sp ); % add the new spikes
             end
+            
+            % finally, add all the spikes to the new neuron
+            for ep = 1:nEpochs
+                newNeuron.addChild( epochs(ep).getChild( 'Spikes' ) );
+            end
+            self.addChild( newNeuron );
             
             fprintf( '\n' );
             % ==================================================================
@@ -450,6 +454,50 @@ classdef ChannelIndex < Container
             end            
         end
         
+        
+        function sortSpikes_using_clusterModel( self,W,mapping,model )
+            % sortSpikes_using_clusterModel( self,W,mapping,model )
+            %
+            % sorts the spike waveforms in the block file using the output from
+            % "create_cluster_models_peranimal"
+            %
+            % Inputs:
+            %   W - the projection matrix used to project the training set
+            %   mapping - the mapping structure used for the projection
+            %   model - the HDBSCAN model used to sort the training set
+
+            % re-merge neurons in this ChannelIndex object if necessary 
+            neuronIDs = [self.getChild( 'Neuron' ).ID];
+            if numel( neuronIDs ) > 1
+                self.mergeNeurons( neuronIDs );
+                clear neuronIDs
+            end
+
+            % get all spike waveforms from the neuron
+            neuron = self.getChild( 'Neuron' );
+            ID = neuron.ID;
+            [spikes,~,~,mask] = neuron.getSpikes();
+            clear neuron
+
+            % map the spikes onto the same subspace as the training set
+            features = map_new_spikes( permute( spikes,[2,1,3] ),W,mapping,full( mask ) );
+            
+            % sort the features using the HDBSCAN model
+            [labels,P] = model.predict( features );
+            
+            % update the ChannelIndex object to split the neurons
+            self.splitNeuron( ID,labels );
+            
+            % now add features and probability vector to each
+            for i = 1:self.nUnits
+                neuron = self.getChild( 'Neuron',i );
+                inds = ismember( labels,neuron.ID );
+                neuron.features = features(inds,:);
+                neuron.probabilities = P(inds);
+                neuron.featureMethod = mapping.method;
+            end
+        end
+
         
         function mergeNeurons( self,neuronIDs )
             % mergeNeurons( self,neuronIDs )

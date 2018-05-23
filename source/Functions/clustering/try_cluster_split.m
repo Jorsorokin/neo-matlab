@@ -1,5 +1,5 @@
-function [labels,chisqStat,pval] = try_cluster_split( X,nDim )
-    % [newLabels,chisqStat,pval] = try_cluster_split( X,nDim )
+function [labels,chisqStat,pval] = try_cluster_split( X )
+    % [newLabels,chisqStat,pval] = try_cluster_split( X )
     %
     % Attempts to split the data in X into two clusters by modeling the
     % data as a chi-squared-distributed random variable with 
@@ -52,20 +52,17 @@ function [labels,chisqStat,pval] = try_cluster_split( X,nDim )
     % Written by Jordan Sorokin, 10/20/2017
     
     % check inputs, preallocate vars
-    [n,m] = size( X );
+    [n,nDim] = size( X );
     labels = ones( 1,n );
     errFunc = @(x,y)(sum( bsxfun( @minus,x,y ).^2,2 ));
     
-    % (a) project the data using pca, to make the 
-    % variables independent, normally distributed,
-    % and maximally separated in the variance space
-    [u,s] = svd( X','econ' );
-    Y = X * (u(:,1:nDim) * s(1:nDim,1:nDim));
+    % (a) standardize the dimensions of X, a necessary whitening 
+    % step for the chisquare distribution
+    Y = zscore( X );
 
     % (b) sum the squared differences between the means of the
     % columns of Y and each row of Y (i.e take sum
     % of squared differences for each dimension)
-    Y = Y ./ std( Y );          % each dimension is now unit variance...
     Yhat = mean( Y );           % mean of each dimension across points...
     Z = errFunc( Y,Yhat );      % Z is SUM_j{ (Y(i,j) - Yhat(j)) }
                                 %   i.e. difference between each
@@ -76,13 +73,13 @@ function [labels,chisqStat,pval] = try_cluster_split( X,nDim )
     % If the points in Y come from one true multivariate gaussian 
     % distribution, then the resulting vector Z should be
     % approximately chisquare distributed with n DOF
-    [chisqStat,pval] = check_chisquare_distribution( Z,nDim-1 );
+    [chisqStat,pval] = check_chisquare_distribution( Z,nDim );
 
     % (d) if the p-value of the chisquared statistic is small, perform
     % a split of the subclusters using spectral clustering, which
     % tends to be robust to oddly-shaped clusters that may occur
     % from splits of the PCA projection space
-    if pval <= 0.005                
+    if pval <= 0.001                
 
         % perform sepctral clusetering on the projected data
         [~,A] = adjacency_graph( Y,'kNN',10 );
@@ -93,12 +90,11 @@ function [labels,chisqStat,pval] = try_cluster_split( X,nDim )
         Z_sub = zeros(1,2);
         for j = 1:2
             Y_sub = Y(subClusts == j,:); 
-            %Y_sub = Y_sub ./ std( Y_sub );
 
             % compute the mean squared error of the
             % points-to-center of the new cluster
-            Z_sub(1) = Z_sub(1) + mean( errFunc( Y_sub',mean( Y_sub )' ) );
-            Z_sub(2) = Z_sub(2) + mean( errFunc( Y_sub',Yhat' ) ); 
+            Z_sub(1) = Z_sub(1) + mean( errFunc( Y_sub,mean( Y_sub ) ) );
+            Z_sub(2) = Z_sub(2) + mean( errFunc( Y_sub,Yhat ) ); 
         end
         
         % keep the clusters as separate clusters if the 

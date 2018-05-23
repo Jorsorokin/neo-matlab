@@ -40,6 +40,7 @@ classdef Neuron < Container
     %                   of the meanWaveform
     %   location - the physical distance of the bestElectrode
     %   region - the brain region from which this neuron was recorded
+    %   subRegion - the sub brain region (i.e. VPM of the thalamus)
     %
     % Methods:
     %   getSpikes
@@ -69,6 +70,7 @@ classdef Neuron < Container
         bestElectrode
         location
         region
+        subRegion
     end
     
     methods
