@@ -50,27 +50,38 @@ function [labels,labelMap] = refine_clusters( X,labels,varargin )
     end
     
     allLabels = unique( labels(labels>0) );
+    if ~isrow( allLabels )
+        allLabels = allLabels';
+    end
+    
     maxLabel = max( allLabels );
     labelMap = zeros( 2,maxLabel );
     split = false( 1,maxLabel );
     
     %% Part 1: loop over clusters and try to split each
-    fprintf( 'Attempting to split clusters...\n' );
+    fprintf( 'Attempting to split clusters...\n' );        
     for k = allLabels
         try
             pts = find( labels == k );
             
             % if mask is not nan, only use channels that are not masked
-            if ~isempty( mask )
-                keepChans = any( mask(:,pts)' > 0 ); % only the most informative channels
-                X_k = concatenateSpikes( X(:,pts,keepChans) );
-            else
-                X_k = concatenateSpikes( X(:,pts,:) );
+%             if ~isempty( mask )
+%                 keepChans = any( mask(:,pts)' > 0 ); % only the most informative channels
+%                 X_k = concatenateSpikes( X(:,pts,keepChans) );
+%             else
+%                 X_k = concatenateSpikes( X(:,pts,:) );
+%             end
+
+            % check for bi-modal voltage and split
+            [split(k),v] = check_voltage_distribution( X(:,pts,:) );
+            if ~split(k)
+                continue
             end
 
             % try splitting the cluster. Update the label vector
             % if splitting was successful
-            newID = try_cluster_split( X_k' );
+            %[~,~,v] = svd( X_k,'econ' );
+            newID = try_cluster_split( v );
             if any( newID == 2 )
                 split(k) = true;
                 for j = 1:2

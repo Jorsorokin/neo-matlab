@@ -5,18 +5,28 @@ function st_clear_plots( handles )
     % the sortTool GUI
     
     % check for validity of plot handles & clear each
-    if ~isa( handles.waveformplot(1),'double' ) && isvalid( handles.waveformplot(1) )
-        for c = 1:numel( handles.waveformplot )
-            cla( handles.waveformplot(c) );
-        end
+    if ~isa( handles.waveformplot,'double' ) && isvalid( handles.waveformplot )
+        arrayfun( @cla,handles.waveformplot.Children );
     end
     
     if ~isa( handles.isiplot,'double' ) && isvalid( handles.isiplot )
-        cla( handles.isiplot );
+        cla( handles.isiplot.Children );
     end
 
     if ~isa( handles.rasterplot,'double' ) && isvalid( handles.rasterplot )
-        cla( handles.rasterplot );
+        arrayfun( @cla,handles.rasterplot.Children );
+    end
+    
+    if ~isa( handles.xcorrplot,'double' ) && isvalid( handles.xcorrplot ) 
+        delete( handles.xcorrplot.Children );
+    end
+    
+    if ~isa( handles.driftplot,'double' ) && isvalid( handles.driftplot )
+        arrayfun( @cla,handles.driftplot.Children );
+    end
+    
+    if ~isa( handles.dvdtplot,'double' ) && isvalid( handles.dvdtplot )
+        cla( handles.dvdtplot.Children );
     end
 
     if ~isa( handles.qualityplot,'double' ) && isvalid( handles.qualityplot )

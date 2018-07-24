@@ -11,25 +11,15 @@ function [start,stop] = find_blockIndex_range( n,m,maxSize )
 % number, as neighborhood graphs etc. may not necessarily be square.
 
 if nargin < 3
-    maxSize = 100000000;
+    maxSize = 1e8; % 1 GB
 end
 
-% get max Pts possible
-maxPts = floor( maxSize / n );
-if maxPts < m
-    remainder = mod( m,maxPts );
-    tempStart = 1:maxPts:m-remainder;
-    tempStop = maxPts:maxPts:m-remainder;
-    if remainder > 0
-        start = [tempStart,tempStart(end)+remainder];
-        stop = [tempStop,m];
-    else
-        start = tempStart;
-        stop = tempStop;
-    end
-else
-    start = 1;
-    stop = m;
+maxPts = ceil( maxSize / n );
+remainder = mod( m,maxPts );
+start = 1:maxPts:m;
+stop = maxPts:maxPts:m-remainder;
+if remainder > 0
+    stop = [stop,m];
 end
 
 end

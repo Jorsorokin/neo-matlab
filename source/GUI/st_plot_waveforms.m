@@ -7,39 +7,50 @@ function st_plot_waveforms( handles )
     
     % check if any data exists
     if ~handles.availableData
-        fprinf( 'No data available\n' );
+        fprintf( 'No data available\n' );
         return
     end
-    
-    %handles.waveformplot(1).Parent.Visible = 'on';
+
     pts = handles.selectedPoints; % only plots selected (highlighted) points
-    numNans = 1;
     if ~any( pts )
         return
     end
     
-    % clear previous plot
-    for c = 1:numel( handles.waveformplot )
-        cla( handles.waveformplot(c) );
-    end
-    
-    uID = handles.clusterIDs( ismember( handles.clusterIDs,handles.labels(pts) ) );
+    uID = handles.clusterIDs(handles.selectedClusts);
     [nPt,~,nChan] = size( handles.data );
-    for i = uID
-        idx = (handles.labels == i) & pts; 
-        color = handles.plotcolor( find( idx,1 ),: );
-        nSp = sum( idx );
-        totalPts = nPt*nSp + nSp*numNans; % extra points for nans
-
-        % add nans between each spike waveform (make one big line)
-        % this helps reduce overhead of having MANY "line" objects
-        time = repmat( [1:nPt,nan( 1,numNans )],1,nSp );
-
-        % loop over channels
-        for c = 1:nChan
-            bigline = reshape( [handles.data(:,idx,c);nan( numNans,nSp )],totalPts,1 ); 
-            line( handles.waveformplot(c),time,bigline,...
-                'color',color,'linewidth',0.5 );
+    nAxes = numel( handles.waveformplot.Children );
+    axDiff = nAxes - nChan;
+    
+    % loop over channels, plot waveforms for that channel
+    if nnz( pts ) >= 100
+        time = 1:nPt;
+        for i = uID
+            idx = (handles.labels==i) & pts;
+            color = handles.plotcolor( find( idx,1 ),: );
+            mean_waveform = squeeze( mean( handles.data(:,idx,:),2 ) );
+            sd_waveform = squeeze( std( handles.data(:,idx,:),[],2 ) );
+            for c = nChan:-1:1
+                line( handles.waveformplot.Children(c+axDiff),time,mean_waveform(:,c),...
+                    'color',color,'linewidth',2 );
+                line( handles.waveformplot.Children(c+axDiff),time,mean_waveform(:,c) + sd_waveform(:,c),...
+                    'linestyle','--','color',color,'linewidth',0.5 );
+                line( handles.waveformplot.Children(c+axDiff),time,mean_waveform(:,c) - sd_waveform(:,c),...
+                    'linestyle','--','color',color,'linewidth',0.5 );
+            end
+        end
+    else
+        timevec = [1:nPt,nan];
+        for i = uID
+            idx = (handles.labels == i) & pts; 
+            color = handles.plotcolor( find( idx,1 ),: );
+            nSp = nnz( idx );
+            totalPts = nPt*nSp + nSp; % extra points for nans
+            time = repmat( timevec,1,nSp );
+            for c = nChan:-1:1
+                bigline = reshape( [handles.data(:,idx,c);nan( 1,nSp )],totalPts,1 ); 
+                line( handles.waveformplot.Children(c+axDiff),time,bigline,...
+                    'color',color,'linewidth',0.5 );
+            end
         end
     end
 end

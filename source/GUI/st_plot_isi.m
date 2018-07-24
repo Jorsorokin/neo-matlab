@@ -9,34 +9,28 @@ function st_plot_isi( handles )
         disp( 'No spike times available' );
         return
     end
-    
-    % get the selected data points
-    cla( handles.isiplot );
-    handles.isiplot.Parent.Visible = 'on';
+
     pts = handles.selectedPoints; % only plots selected (highlighted) points
     if ~any( pts )
         return
     end
-    pltLims = handles.isiplot.XLim;
-    edges = linspace( pltLims(1),pltLims(2),pltLims(2)*2000 );
-    plotedges = edges(1:end-1);
+    pltLims = handles.isiplot.Children.XLim;
+    edges = logspace( log10( pltLims(1) ),log10( pltLims(2) ),round( pltLims(2)/10 ) );
     
     % loop over ids/trials
-    selectedIDs = handles.labels(pts);
-    selectedTrials = handles.trials(pts);
     uID = handles.clusterIDs(handles.selectedClusts);
-    uTrials = unique( selectedTrials );
-    nColors = size( handles.allPlotColors,1 );
+    uTrials = unique( handles.trials(pts) );
+    nColors = size( handles.allPlotColor,1 ) - 1;
     
     for id = uID
         isi = [];
         for trial = uTrials
-            thesePts = (selectedIDs == id & selectedTrials == trial);
-            isi = [isi,diff( handles.times(thesePts) )];
+            thesePts = (handles.labels == id & handles.trials == trial & pts);
+            isi = [isi,diff( handles.times(thesePts)*1000 )];
         end
-        prob = histcounts( isi,edges,'Normalization','pdf' );
-        h = stairs( handles.isiplot,plotedges,prob );
-        hold on;
-        set( h,'color',handles.allPlotColor(min( id,mod( id,nColors ) )) );
+        
+        prob = histcounts( isi(isi<=pltLims(2)),edges,'Normalization','probability' );
+        thisColor = min( id,mod( id,nColors ) + uint8(id ~= 0) ) + 1;
+        stairs( handles.isiplot.Children,edges(2:end),prob,'color',handles.allPlotColor(thisColor,:) );
     end
 end

@@ -15,10 +15,10 @@ function snips = interpolate_spikes( spikes,fs,sptm,preTime,postTime,varargin )
     % check size & inputs
     smoothing = [];
     resampValue = 1; % default no upsampling
-    if nargin > 4 
+    if nargin > 5 
         smoothing = varargin{1};
     end
-    if nargin > 5 && ~isempty( varargin{2} )
+    if nargin > 6 && ~isempty( varargin{2} )
         resampValue = varargin{2};
     end
         
@@ -38,11 +38,14 @@ function snips = interpolate_spikes( spikes,fs,sptm,preTime,postTime,varargin )
     xind = 1:n;
     for sp = 1:nSp
         try
-            x = linspace( spPts(sp)-prePts,spPts(sp)+postPts-1,totalPts );
+            x = linspace( spPts(sp)-prePts+1,spPts(sp)+postPts,totalPts );
             snips(:,sp,:) = csaps( xind,squeeze( spikes(:,sp,:) )',smoothing,x )'; % smooths the interpolant
-            
         catch
         end
+    end
+    
+    if resampValue > 1
+        snips = snips([fliplr( prePts:-resampValue:1 ),prePts+resampValue:resampValue:totalPts],:,: );
     end
     warning( 'on' );
 end

@@ -59,24 +59,18 @@ function features = map_new_spikes( spikes,W,mapping,varargin )
     % transform the data 
     spikes = spikes - mapping.mu; % remove mean of original dataset
     if mapping.concatenate
-        
-        % project using 2dPCA first
-        spikes = permute( spikes,[3,2,1] );
-        v = mapping.pc2D.V;
-        proj = zeros( c,size( v,2 ),n );
-        for j = 1:n
-            proj(:,:,j) = spikes(:,:,j)*v;
-        end
-        proj = reshape( proj,c*size( proj,2 ),n )';
-        
-        % now map with the final mapping matrix W
-        features = proj * W;
+        [~,~,proj] = pca2D( permute( spikes,[2,3,1] ),mapping.pc2D.V );
+        features = proj' * W;
     else
-        features = zeros( n,mapping.newDim / c,c );
-        for ch = 1:c
-            features(:,:,ch) = spikes(:,:,ch) * W(:,:,ch);
+        if ~isempty( which( 'mmx' ) )
+            features = reshape( mmx( 'mult',double( spikes ),double( W ) ),n,mapping.newDim );
+        else
+            features = zeros( n,mapping.newDim / c,c );
+            for ch = 1:c
+                features(:,:,ch) = spikes(:,:,ch) * W(:,:,ch);
+            end
+            features = reshape( features,n,mapping.newDim );
         end
-        features = reshape( features,n,mapping.newDim );
     end
     
     % add distances

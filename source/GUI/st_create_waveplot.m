@@ -1,10 +1,9 @@
-function ax = st_create_waveplot( handles )
-    % ax = st_create_waveplot( handles )
+function fig = st_create_waveplot( handles )
+    % fig = st_create_waveplot( handles )
     % creates an instance of the "waveformplot" used for the "sortTool" GUI
     %
     % handles is a structure with variables referenced by the main GUI
-    figure( 'Visible','off','position',[4,530,340,250],'color','k' );
-    set(gcf,'Name','Raw waveforms');
+    fig = figure( 'Visible','off','position',[4,500,500,400],'color','k','Name','Raw waveforms' );
     if handles.availableData
         yrange = gather( [min( min( handles.data(:) ) ),max( max( handles.data(:) ) )] );
         xrange = gather( [1, size( handles.data,1 )] );
@@ -20,29 +19,22 @@ function ax = st_create_waveplot( handles )
     axw = (1-sum(marg_w)-(cols-1)*gap(2))/cols; % y positions
     py = 1-marg_h(2)-axh; 
     
-    rowCounter = 0;
-    ii = 0;
     for ih = 1:rows
         px = marg_w(1);
-
         for ix = 1:cols
-            ii = ii+1;
-            ax(ii) = axes('Units','normalized', ...
+            ax = axes( 'Units','normalized', ...
                 'Position',[px py axw axh], ...
-                'XTickLabel','', ...
-                'YTickLabel',''); hold on;
-            px = px+axw+gap(2);
-            set( ax(ii),'ylim',yrange,'xlim',xrange,'fontsize',8,'ycolor','k','xcolor','k','color','k' );
+                'XTickLabel','',...
+                'YTickLabel','',...
+                'NextPlot','add' );
             
-            % add the y-axis to the left column
-            if mod( ii,cols ) == 1
-                ylabel( '\muV' );
-                set( gca,'ycolor','w' );
-                rowCounter = rowCounter + 1;
-            end
+            set( ax,'ylim',yrange,'xlim',xrange,...
+                'fontsize',8,'ycolor','k',...
+                'xcolor','k','color','k' );
+            
+            px = px+axw+gap(2);
         end
         py = py-axh-gap(1);
-        %set( ax(i),'LooseInSet',get( ax(i),'TightInSet' ),'position',[.12 .08 .86 .88] );
     end
     linkaxes( get( gcf,'Children'),'xy' );
 end

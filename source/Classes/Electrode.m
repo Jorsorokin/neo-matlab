@@ -52,16 +52,13 @@ classdef Electrode < Container
         
         
         function addChild( self,child )
-            switch class( child )
-                case 'Signal'
-                    addChild@Container( self,child );
-                    self.nSignals = self.nSignals + numel( child );
-                    for j = 1:numel( child )
-                        child(j).electrode = self.electrodeNum;
-                        child(j).chanInd = [child(j).chanInd,self.chanInd]; % adds the associated ChannelIndex
-                    end
-                otherwise
-                    error( 'Only Signal objects are valid children' );
+            assert( isa( child,'Signal' ),'Only Signal objects are valid children' );
+            
+            addChild@Container( self,child );
+            self.nSignals = self.nSignals + numel( child );
+            for j = 1:numel( child )
+                child(j).electrode = self.electrodeNum;
+                child(j).chanInd = [child(j).chanInd,self.chanInd]; % adds the associated ChannelIndex
             end
         end 
 
@@ -117,8 +114,6 @@ classdef Electrode < Container
             % loop over neuron objects, pull out spikes, times, epoch nums
             for i = 1:numel( neurons )
                 [v,t,ep] = neurons(i).getSpikes( epochs );
-                t = reshape( t,1,numel( t ) ); % makes into one long vector
-                t(isnan(t)) = [];
 
                 % get the chanind vector
                 ch = repmat( neurons(i).chanInd,1,numel( ep ) );
@@ -127,7 +122,7 @@ classdef Electrode < Container
                 % add to the outputs
                 thisElectrode = ismember( neurons(i).getParent( 'ChannelIndex' ).chanIDs,self.electrodeNum );
                 snips = [snips, squeeze( v(:,:,thisElectrode) )];
-                times = [times,t];
+                times = [times,spikemat2vec( t )];
                 epNum = [epNum,ep];
                 chIndNum = [chIndNum,ch];
                 neuronID = [neuronID,id];

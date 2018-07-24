@@ -44,11 +44,13 @@ classdef Neuron < Container
     %
     % Methods:
     %   getSpikes
+    %   getSpikes_subset
     %   plotSpikes
     %   raster
     %   psth
     %   getISI
     %   plotISI
+    %   getCorrelogram
     %   estimateKernel
     %   firingRate
     %   plotFeatures
@@ -81,87 +83,158 @@ classdef Neuron < Container
         
         
         function addChild( self,child )
-            switch class( child )
-                case 'Spikes'
-                    addChild@Container( self,child );
-                    self.nSpikes = sum( [child.nSpikes] );
-                    meanVolt = zeros( size( child(1).voltage,1 ),size( child(1).voltage,3 ) );
-                    for j = 1:numel( child )
-                        child(j).unitID = self.ID;
-                        child(j).chanInd = self.chanInd;
-                        meanVolt = meanVolt + squeeze( mean( child(j).voltage,2 ) );
-                    end
-                    self.meanWaveform = meanVolt / j;
-                otherwise
-                    error( 'Only Spikes objects are valid children' );
+            % adds spikes objects to this Neuron
+            assert( isa( child,'Spikes' ),'Only Spikes objects are valid children' );
+            
+            addChild@Container( self,child );
+            self.nSpikes = sum( [child.nSpikes] );
+            meanVolt = zeros( size( child(1).voltage,1 ),size( child(1).voltage,3 ) );
+            
+            for j = 1:numel( child )
+                child(j).unitID = self.ID;
+                child(j).chanInd = self.chanInd;
+                if child(j).nSpikes > 0
+                    meanVolt = meanVolt + squeeze( mean( child(j).voltage,2 ) );
+                end
             end
+            self.meanWaveform = meanVolt / j;
         end 
         
         
         function addParent( self,parent )
-            switch class( parent )
-                case 'ChannelIndex'
-                    addParent@Container( self,parent );
-                    self.chanInd = parent.chanIndNum; 
-                    self.nChan = parent.nElectrodes;
-                otherwise
-                    error( 'Only ChannelIndex objects are valid parents' );
-            end
+            asert( isa( parent,'ChannelIndex' ),'Only ChannelIndex objects are valid parents' );
+            
+            addParent@Container( self,parent );
+            self.chanInd = parent.chanIndNum; 
+            self.nChan = parent.nElectrodes;
         end
               
         
         function [snips,times,epNum,mask] = getSpikes( self,varargin )
-            % [snips,times,epNum,mask] = getSpikes( self,(epochs) )
+            % [snips,times,epNum,mask] = getSpikes( self,(epochs,bounds) )
             %
             % extracts the spike voltage waveforms and spike times across 
             % epochs for this Neuron object. Returns snips, spike times,
             % a vector "epNum" refering to which epoch (Spikes obj)
             % each voltage/spiketime came from, and a sparse matrix "mask"
             % refering to the spike mask created if running masked spike detection.
-            % Optionally specify the spike objects (i.e. epochs) to extract.
+            % 
+            % One can optionally specify the spike objects (i.e. epochs) to extract by 
+            % supplying an integer or vector of integers referring to the desired epochs.
+            %
+            % One can also supply a 2-element vector specifying the time bounds (in seconds)
+            % to extract. I.e. bounds = [2 5] extracts spikes who's spike times are within 2 and 5 
+            % seconds of the recording for each epoch. 
             
-            % check inputs
-            if nargin > 1 && ~isempty( varargin{1} )
-                epochs = varargin{1};
-            else
-                epochs = 1:numel( self(1).getChild( 'Spikes' ) );
-            end
-            
-            % get the "Spikes" child of this Neuron
-            child = self.getChild( 'Spikes',epochs );
-            if isempty( child )
+            if self.nSpikes == 0
                 disp( 'no spikes found' );
                 snips = [];
-                return;
+                times = [];
+                epNum = [];
+                mask = [];
+                return
+            end
+
+            % get spikes objects
+            if nargin > 1 && ~isempty( varargin{1} )
+                spikes = self.getChild( 'Spikes',varargin{1} );
+            else
+                spikes = self.getChild( 'Spikes' );
             end
             
-            % preallocate vectors
-            if self.nChan == 0
-                self.nChan = size( child(1).voltage,3 );
-            end
-            npoints = size( child(1).voltage,1 );
-            nSp = zeros( 1,numel( child ) );
-            for i = 1:numel( child )
-                nSp(i) = numel( child(i).times );
-            end
-            nEpoch = numel( child );
-            times = nan( max( nSp ),nEpoch );
-            snips = nan( npoints,sum( nSp ),self.nChan );
-            epNum = uint16( zeros( 1,sum( nSp ) ) );
-            mask = zeros( self.nChan,sum( nSp ) );
+            % pull out actual variables
+            nSp = [spikes.nSpikes];
+            times = [spikes.times];
+            mask = [spikes.mask];
+            snips = [spikes.voltage];
+            epNum = cell2mat( arrayfun( @(x,y)(ones(1,x)*y),nSp,1:numel( spikes ),'un',0 ) );
             
-            % loop over Spike objects
-            counter = 0;
-            nChild = numel( child );
-            for i = 1:nChild
-                thisInd = counter+1:counter+nSp(i);
-                snips(:,thisInd,:) = child(i).voltage;
-                times(1:nSp(i),i) = child(i).times;
-                epNum(thisInd) = child(i).epoch;
-                if ~isempty( child(i).mask )
-                    mask(:,thisInd) = child(i).mask;
+            % remove spikes outside of bounds
+            if nargin > 2 && ~isempty( varargin{2} )
+                idx = (times < varargin{2}(1) | times > varargin{2}(2));
+                times(idx) = [];
+                epNum(idx) = [];
+                mask(:,idx) = [];
+                snips(:,idx,:) = [];
+            end
+            
+            % convert to spike time matrix
+            times = spikevec2mat( times,epNum );
+        end
+        
+        
+        function [snips,time,epoch,mask,amp,bestElectrode] = getSpikes_subset( self,nTotal,varargin )
+            % [snips,time,epoch,mask,amp,bestElectrode] = getSpikes_subset( nTotal,(epochs,bounds,separateByChannels,minAmp) )
+            %
+            % extracts a subset of spikes contained within this neuron object. If the optional argument
+            % separateByChannels, a boolean, is not provided or is false, then a random subset across all
+            % spikes is pulled out. Otherwise, nTotal, the # of spikes to extract, is divided by the # of
+            % electrodes recording the spikes, and for each electrode, a random subset of spikes is
+            % extracted that have their largest voltage fluctuation on that electrode.
+            %
+            % the optional argument "epochs" specifies which epochs to pull spikes from. If not
+            % specified, all epochs are used. 
+            %
+            % the optional argument "bounds", a two-element vector, specifies (in seconds) when to extract spikes.
+            % If not specified, the random subset is pulled out across the entire dataset. Else, the random subset
+            % is only pulled out if: bounds(1) <= spike times <= bounds(2)
+            %
+            % finally, the optional argument "minAmp" specifies an amplitude threshold for the spike subset.
+            % Those spikes with voltages > minAmp (meaning, less of a voltage deflection), are not
+            % extracted. Default is minAMp = 0
+            %
+            % For all optional arguments, use the name-value pair format
+                                               
+            % get optional inputs
+            p = check_inputs( varargin );
+            [snips,time,epoch,mask] = self.getSpikes( p.epochs,p.bounds );
+            nTotal = min( nTotal,numel( epoch ) );
+            time = spikemat2vec( time );
+            
+            % pull out subset of spikes for each electrode where spikes have largest voltage
+            % on that electrode
+            if ~isempty( mask )
+                [amp,bestElectrode] = min( squeeze( min( maskchans( snips,mask ) ) ),[],2 );
+            else
+                [amp,bestElectrode] = min( squeeze( min( snips ) ),[],2 );
+            end
+            
+            amp = amp';
+            bestElectrode = bestElectrode';
+            
+            if ~p.separateByChannels
+                idx = find( amp <= p.minAmp );
+                n = numel( idx );
+                idx = idx( sort( randperm( n,min( n,nTotal ) ) ) );
+            else
+                nElectrodeSpikes = floor( nTotal / self.nChan );
+                idx = nan( nElectrodeSpikes,self.nChan );
+                for electrode = 1:self.nChan
+                    tempidx = find( bestElectrode == electrode & amp <= p.minAmp );
+                    n = numel( tempidx );
+                    k = min( n,nElectrodeSpikes );
+                    idx(1:k,electrode) = tempidx( randperm( n,k ) );
                 end
-                counter = counter + nSp(i);
+                idx = sort( spikemat2vec( idx ) );
+            end
+            
+            % now extract the subset of spikes
+            bestElectrode = bestElectrode(idx);
+            amp = amp(idx);
+            snips = snips(:,idx,:);
+            mask = mask(:,idx);
+            epoch = epoch(idx);
+            time = spikevec2mat( time(idx),epoch );
+            
+            function p = check_inputs( inputs )
+                names = {'epochs','bounds','separateByChannels','minAmp'};
+                defaults = {[],[],false,0};
+                p = inputParser;
+                for j = 1:numel(names)
+                    p.addParameter( names{j},defaults{j} );
+                end
+                p.parse( inputs{:} );
+                p = p.Results;
             end
         end
         
@@ -203,22 +276,19 @@ classdef Neuron < Container
             % contained within this neuron. ISI will be a large matrix,
             % with each column representing one spike train, and rows
             % representing the difference between consecutive spike times
-            % in that spike trian. Differences are given in seconds. Can
-            % optionally supply a second argument specifying which spike
+            % in that spike train (in ms). 
+            %
+            % Can optionally supply a second argument specifying which spike
             % trains (i.e. epochs) to pull out.
             
-            % check inputs
             if nargin > 1 && ~isempty( varargin{1} )
                 epochs = varargin{1};
             else
                 epochs = 1:numel( self(1).getChild( 'Spikes' ) );
             end
             
-            % pull out spikes
             [~,sptm] = self.getSpikes( epochs );
-            
-            % get the difference in the spike times
-            ISI = diff( sptm );
+            ISI = diff( sptm*1000 );
         end
            
         
@@ -227,7 +297,7 @@ classdef Neuron < Container
             %
             % plot the inter-spike-interval (ISI) histogram for all spikes
             % contained in this Neuron. Optionally specify a bin width (in
-            % seconds).
+            % ms).
             
             % check input
             if nargin > 1
@@ -240,28 +310,57 @@ classdef Neuron < Container
                 bw = varargin{2};
             end
                 
-            % get the ISI
+            % reshape the ISI matrix
             ISI = self.getISI( epochs );
-            
-            % reshape the matrix
             [n,m] = size( ISI );
             ISI = reshape( ISI,n,m );
             ISI(isnan( ISI )) = [];
             
             % plot a histogram of the spike times
             if exist( 'bw','var' )
-                [N,edges] = histcounts( ISI,'binwidth',bw,...
-                    'Normalization','probability' );
+                edges = linspace(0,max(ISI),round( max(ISI)/bw ));
+                xscale = 'linear';
             else
-                [N,edges] = histcounts( ISI,'Normalization','probability' );
+                edges = logspace( log10(0.1),log10(max(ISI)),round( max(ISI)/20 ) );
+                xscale = 'log';
             end
-            s = stairs( edges(2:end),N );
+            N = histcounts( ISI,edges,'Normalization','Probability' );
+            ax = gca();
+            s = stairs( ax,edges(2:end),N );
             set( s,'color',[0.85 0.85 0.85] );
-            ylabel( 'count / bin width' );
-            xlabel( 'ISI (s)' );
+            set( ax,'xscale',xscale );
+            ylabel( 'probability' );
+            xlabel( 'ISI (ms)' );
             darkPlot( gcf );
         end
-                
+        
+        
+        function [xcg,lags] = getCorrelogram( self,binwidth,maxLag,plotFlag,varargin )
+            % [xcg,lags] = getCorrelogram( self,binwidth,maxLag,plotFlag,(neuronID) )
+            %
+            % gets the auto (or cross) correlogram between this neuron and itself
+            % (or another neuron, if another neuron object is provided as an optional input)
+            % 
+            % the variables binwidth and maxLag should be in seconds
+            
+            [~,train1] = self.getSpikes();            
+            
+            if nargin > 4 
+                otherNeuron = findobj( self.getParent('ChannelIndex').getChild('Neuron'),'ID',varargin{1} );
+                [~,train2] = otherNeuron.getSpikes();
+                [xcg,lags] = correlogram( train1,train2,binwidth,maxLag );
+            else
+                [xcg,lags] = correlogram( train1,train1,binwidth,maxLag );
+            end
+            
+            if plotFlag
+                bar( lags*1000,xcg,'FaceColor','k','EdgeColor','None','BarWidth',1 );
+                ylabel( 'pdf(x)' );
+                xlabel( 'ms' );
+                set( gca,'tickdir','out','box','off' );
+            end
+        end
+        
         
         function raster( self,start,pre,post,varargin )
             % raster( self,start,pre,post,(epochs) );
@@ -279,11 +378,7 @@ classdef Neuron < Container
                 epochs = 1:numel( self.children{1} );
             end
 
-            % pull out the spike times across epochs
             [~,sptm,~] = self.getSpikes( epochs ); 
-            
-            % plot the raster according to the pre/post time and starting
-            % time provided
             PlotRasters( sptm,start,pre,post );
             title( sprintf( 'Neuron %i, ChannelIndex %i',...
                                 self.ID,self.chanInd ) );
@@ -311,10 +406,7 @@ classdef Neuron < Container
                 epochs = 1:numel( self.children{1} );
             end
             
-            % pull out spike times
             [~,sptm,~] = self.getSpikes( epochs );
-            
-            % compute the PSTH
             [count,avgCount,sigma] = CalculatePSTH( sptm,start,pre,post,bw );
             time = linspace( start-pre,start+post,numel( avgCount ) );
         end
@@ -410,6 +502,7 @@ classdef Neuron < Container
             end
             
             % plot the features
+            axlabel = cell( 1,size( self.features,2 ) );
             for j = 1:size( self.features,2 )
                 axlabel{j} = sprintf( 'feature %i',j );
             end

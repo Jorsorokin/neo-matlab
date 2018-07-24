@@ -112,7 +112,6 @@ classdef Block < Container
             chanind = self.getChild( 'ChannelIndex' );
             electrode = self.getChild( 'Electrode' );
             neurons = self.getNeurons();
-            %signals = self.getSignals();
 
             % check for validity & update: ChannelIndex
             % =========================================

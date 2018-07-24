@@ -71,8 +71,8 @@ classdef Epoch < Container
         function addChild( self,child )
             % overloaded the "addChild" method on the Container class to
             % update specific properties of the Epoch class
-            if max( strcmp( class( child ),{'Signal','Spikes'} ) ) == 0
-                error( 'Only Signal & Spikes objects are valid children' );
+            if ~isa( child,'Signal' ) && ~isa( child,'Spikes' )
+                error( 'Only Signal & Spikes objects are valid children' )
             end
             
             switch class( child )
@@ -91,12 +91,8 @@ classdef Epoch < Container
         function addParent( self,parent )
             % overload the "addParent" method of the Container class for
             % Epoch class specifically
-            switch class( parent )
-                case {'Block'}
-                    addParent@Container( self,parent );
-                otherwise
-                    error( 'Only Block object is a valid parent' );
-            end
+            assert( isa( parent,'Block' ),'Only Block object is a valid parent' );
+            addParent@Container( self,parent );
         end
         
         
@@ -412,6 +408,7 @@ classdef Epoch < Container
             
             % now plot a vertical line indicating an event if one exists
             if ~isempty( self.eventTime )
+                hold on;
                 yL = get(gca,'ylim');
                 plot( [self.eventTime-self.startTime, self.eventTime-self.startTime],yL,'w--','linewidth',2 );
             end  
