@@ -15,8 +15,8 @@ function spikeMat = spikevec2mat( spikeVec,trials )
     trialIDX = (trials == repmat( 1:nTrials,n,1 ));
     nPts = sum( trialIDX );
     spikeMat = nan( max( nPts ),nTrials );
-    
-    for trial = 1:nTrials
-        spikeMat(1:nPts(trial),trial) = spikeVec(trialIDX(:,trial));
+    uniqueTrials = unique( trials )';
+    for trial = uniqueTrials
+        spikeMat(1:sum( trialIDX(:,trial) ),trial) = spikeVec(trialIDX(:,trial));
     end
 end

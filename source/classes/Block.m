@@ -36,6 +36,7 @@ classdef Block < Container
     %   undoSorting
     %   mergeSimilarNeurons
     %   saveSpikeWaveforms
+    %   addRegionInfo
     %
     %       * see also methods in the Container class
     
@@ -131,6 +132,7 @@ classdef Block < Container
                 end
             end
             self.nChanInds = numel( chanind );
+            self.nSignals = sum( [chanind.nSignals] );
             % =========================================
             
             % check validity & update: Electrode 
@@ -172,7 +174,6 @@ classdef Block < Container
 
             % check validity & update: Epoch
             % ==============================
-            nSig = 0;
             nEp = 0;
             if ~isempty( epoch )
                 epoch(~isvalid( epoch )) = [];
@@ -186,7 +187,6 @@ classdef Block < Container
                         if ~isempty( signals )
                             signals(~isvalid(signals)) = [];
                         end
-                        nSig = nSig + numel( signals );
                         epoch(ep).nSignals = numel( signals );
 
                         if ~isempty( spikes )
@@ -203,7 +203,6 @@ classdef Block < Container
                     end
                 end
             end
-            self.nSignals = nSig;
             self.nEpochs = nEp;
             % =========================================
 
@@ -235,7 +234,7 @@ classdef Block < Container
             % saves the Block and its children into the folder specified by
             % "outpath". The file will be saved as "(self.filename)_extractedData.mat".
             % The actual matlab variable itself will be saved as "block"
-            if ~isdir( outpath )
+            if ~isfolder( outpath )
                 mkdir( outpath );
                 addpath( outpath );
             end
@@ -257,6 +256,53 @@ classdef Block < Container
             if ~isempty( chanind )
                 for j = numel( chanind ):-1:1
                     neurons = [chanind(j).getChild( 'Neuron' ),neurons]; % negative indexing to pre-allocate max array first
+                end
+            end
+        end
+        
+        
+        function addRegionInfo( self,regions )
+            % addRegionInfo( self,regions )
+            %
+            % adds the info in "regions", a cell array of length
+            % self.nElectrodes with each cell containing the location of
+            % each electrode (i.e. [{'cortex'},{'hippocampus'},...] )
+            %
+            % both the Electrode children and the Neuron children will be
+            % updated, such that each Neuron will contain information on
+            % the closest electrode, and the region for that electrode will
+            % be added automatically
+            
+            % check size of "regions" array
+            if isempty( regions )
+                return
+            end
+            
+            assert( length( regions ) == self.nElectrodes,...
+                'provided array with unequal # of elements as the # of electrodes' );
+            
+            % first, loop over neurons and make find best electrode for
+            % each
+            neurons = self.getNeurons();
+            for j = 1:numel( neurons )
+                neurons(j).findBestElectrode();
+            end
+            
+            % loop over electrodes, add the region
+            electrodes = self.getChild( 'Electrode' );
+            for j = 1:self.nElectrodes
+                electrodes(j).region = regions{j,1};
+                if size( regions{j},2 ) > 1
+                    electrodes(j).subRegion = regions{j,2};
+                end
+
+                % add region to the neurons belonging to this electrode
+                nearestNeurons = findobj(neurons,'bestElectrode',j);
+                if ~isempty( nearestNeurons )
+                    for n = 1:numel( nearestNeurons )
+                        nearestNeurons(n).region = electrodes(j).region;
+                        nearestNeurons(n).subRegion = electrodes(j).subRegion;
+                    end
                 end
             end
         end
@@ -347,8 +393,9 @@ classdef Block < Container
                 % get the mean waveform
                 for j = 1:nunits
                     if isempty( neurons(j).meanWaveform )
-                        spikes = neurons(j).getSpikes;
+                        [spikes,~,~,mask] = neurons(j).getSpikes;
                         neurons(j).meanWaveform = squeeze( mean( spikes,2 ) );
+                        neurons(j).meanMask = mean( mask,2 );
                     end
                     meanWaveform(:,j) = reshape( neurons(j).meanWaveform,nPts,1 );
                 end
@@ -386,6 +433,7 @@ classdef Block < Container
             self.update();  
         end
         
+        
         function saveSpikeWaveforms( self,spikesDir )
             % saveSpikeWaveforms( self,spikesDir )
             % 
@@ -407,19 +455,21 @@ classdef Block < Container
 
             spikes = cell( 1,nunits );
             epochs = cell( 1,nunits );
+            times = cell( 1,nunits );
             mask = cell( 1,nunits );
-            unitID = uint8([neurons.ID]);
-            unitCH = uint8([neurons.chanInd]);
+            unitID = uint8( [neurons.ID] );
+            unitCH = uint8( [neurons.chanInd] );
 
             % loop over neurons, pull out spikes
             for n = 1:nunits
-                [sp,~,ep,m] = neurons(n).getSpikes();
+                [sp,t,ep,m] = neurons(n).getSpikes();
                 spikes{n} = single( sp );
                 mask{n} = sparse( double( m ) );
                 epochs{n} = uint8( ep );
-                neurons(n).meanWaveform = squeeze( mean( sp,2 ) );
-
+                times{n} = single( spikemat2vec( t ) );
+                
                 spObj = neurons(n).getChild( 'Spikes' );
+                neurons(n).meanMask = mean( [spObj.mask],2 );
                 for sp = 1:numel( spObj )
                     spObj(sp).voltage = [];
                     spObj(sp).mask = [];
@@ -428,7 +478,7 @@ classdef Block < Container
 
             % save the spikes
             saveFile = [spikesDir,filesep,self.filename,'_spikeWaveforms.mat'];
-            save( saveFile,'spikes','epochs','mask','unitID','unitCH','-v7.3' );   
+            save( saveFile,'spikes','epochs','times','mask','unitID','unitCH','-v7.3' );   
             
             % update the block
             self.update();

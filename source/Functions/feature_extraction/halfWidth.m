@@ -20,17 +20,24 @@ function hw = halfWidth( spikes,peaks,fs )
 %       m x 1 vector of half-width info for each spike
 
 % sizes and pre-allocation
-[~,nSp] = size( spikes );
+[nPts,nSp] = size( spikes );
 hw = nan( nSp,1 );  
+x = linspace(1,nPts,nPts);
+xx = linspace(1,nPts,nPts*5);
+fsUP = fs*5;
+spikeUP = interp1( x,spikes,xx,'spline' );
+if nSp == 1
+    spikeUP = spikeUP';
+end
 
 for s = 1:nSp
     try
         % extract the spike
-        sp = spikes(:,s);
+        sp = spikeUP(:,s);
 
         % get the points just under the half-point
-        first = find( sp <= peaks(s)/2,1 ) / fs;
-        last = find( sp <= peaks(s)/2,1,'last' ) / fs;
+        first = find( sp <= peaks(s)/2,1 ) / fsUP;
+        last = find( sp <= peaks(s)/2,1,'last' ) / fsUP;
 
         % calculate the distance in time
         hw(s) = last - first;

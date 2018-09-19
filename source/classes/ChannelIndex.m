@@ -236,7 +236,7 @@ classdef ChannelIndex < Container
                 distMat = pdist2( chanDist,chanDist );
                 maxChan = floor( mean( sum( distMat <= 250 ) ) );
             else
-                maxChan  = [];
+                maxChan  = self.nElectrodes;
             end
             
             % get whitening matrix 
@@ -299,7 +299,7 @@ classdef ChannelIndex < Container
                         'maxPts',maxPts,'maxChans',maxChan,'artifact',p.artifact );                
                 end
             
-               % create a "Spikes" object using the found spikes
+                % create a "Spikes" object using the found spikes
                 Sp = Spikes( single( sptm/fs ),single( spsnip ),fs );
                 Sp.mask = sparse( mask ); 
                 
@@ -553,7 +553,7 @@ classdef ChannelIndex < Container
 
         
         function [ID,A] = sortSpikes_using_templates( self,templates,varargin )
-            % [ID,A] = sortSpikes_using_templates( self,templates,(useMask,useChanMap,resolveOverlap,thresh) )
+            % [ID,A] = sortSpikes_using_templates( self,templates,(useChanMap,useMask,resolveOverlap,thresh) )
             %
             % sorts the spike waveforms contained in this ChannelIndex
             % object by using template matching. Currently, template
@@ -1046,11 +1046,9 @@ classdef ChannelIndex < Container
             end
             
             % remap
-            chanDist = self.chanDistances(:,end);
             if ~isempty( self.chanMap )
                 spikes = spikes(:,:,self.chanMap);
                 mask = mask(self.chanMap,:);
-                chanDist = chanDist(self.chanMap);
             end
             
             % create an instance of the GUI

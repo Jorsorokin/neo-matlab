@@ -906,6 +906,7 @@ function varargout = sortTool( varargin )
         % update
         guidata( hObject,handles );  
         
+        
     function plotdrift_Callback(hObject, eventdata, handles)
         
         % create a new figure if needed
@@ -924,7 +925,7 @@ function varargout = sortTool( varargin )
         end
         
         % update
-        guidata( hObject,handles );  
+        guidata( hObject,handles );
         
 
     function plotdvdt_Callback(hObject, eventdata, handles)
@@ -945,7 +946,7 @@ function varargout = sortTool( varargin )
         end
         
         % update
-        guidata( hObject,handles ); 
+        guidata( hObject,handles );    
         
         
     function plotClusterQuality_Callback( hObject,eventdata,handles )

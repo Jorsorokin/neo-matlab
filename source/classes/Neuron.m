@@ -54,6 +54,9 @@ classdef Neuron < Container
     %   estimateKernel
     %   firingRate
     %   plotFeatures
+    %   getCSD
+    %   plotCSD
+    %   findBestElectrode
     %   
     %       * see also methods in the Container class
     
@@ -69,6 +72,7 @@ classdef Neuron < Container
         sortModel = struct( 'mu',[],'Sigma',[] );
         projMatrix = nan;
         meanWaveform
+        meanMask
         bestElectrode
         location
         region
@@ -154,12 +158,23 @@ classdef Neuron < Container
                 idx = (times < varargin{2}(1) | times > varargin{2}(2));
                 times(idx) = [];
                 epNum(idx) = [];
-                mask(:,idx) = [];
-                snips(:,idx,:) = [];
+                
+                if ~isempty( mask )
+                    mask(:,idx) = [];
+                end
+
+                if ~isempty( snips )
+                    snips(:,idx,:) = [];
+                end
             end
             
             % convert to spike time matrix
             times = spikevec2mat( times,epNum );
+            nT = size( times,2 );
+            nEp = self.getParent( 'ChannelIndex' ).getParent( 'Block' ).nEpochs;
+            if nEp > nT
+                times(:,nT+1:nEp) = nan;
+            end
         end
         
         
@@ -195,12 +210,17 @@ classdef Neuron < Container
             % on that electrode
             if ~isempty( mask )
                 [amp,bestElectrode] = min( squeeze( min( maskchans( snips,mask ) ) ),[],2 );
-            else
+            elseif ~isempty( snips )
                 [amp,bestElectrode] = min( squeeze( min( snips ) ),[],2 );
+            else
+                amp = [];
+                bestElectrode = [];
             end
             
-            amp = amp';
-            bestElectrode = bestElectrode';
+            if ~isempty( amp )
+                amp = amp';
+                bestElectrode = bestElectrode';
+            end
             
             if ~p.separateByChannels
                 idx = find( amp <= p.minAmp );
@@ -343,7 +363,7 @@ classdef Neuron < Container
             % 
             % the variables binwidth and maxLag should be in seconds
             
-            [~,train1] = self.getSpikes();            
+            [~,train1,epochs] = self.getSpikes();            
             
             if nargin > 4 
                 otherNeuron = findobj( self.getParent('ChannelIndex').getChild('Neuron'),'ID',varargin{1} );
@@ -354,10 +374,11 @@ classdef Neuron < Container
             end
             
             if plotFlag
-                bar( lags*1000,xcg,'FaceColor','k','EdgeColor','None','BarWidth',1 );
+                bar( lags*1000,xcg,'FaceColor','w','EdgeColor','None','BarWidth',1 );
                 ylabel( 'pdf(x)' );
                 xlabel( 'ms' );
                 set( gca,'tickdir','out','box','off' );
+                darkPlot( gcf );
             end
         end
         
@@ -517,9 +538,72 @@ classdef Neuron < Container
             
             suptitle( sprintf( 'neuron %i, from %s',self.ID,name ) );
         end
-
+        
+        
+        function csd = getCSD( self )
+            % csd = getCSD( self )
+            %
+            % returns the csd of this neuron's mean waveform matrix
+            csd = diff( diff( self.meanWaveform(:,self.getParent('ChannelIndex').chanMap),[],2 ),[],2 );
+        end
+        
+        
+        function plotCSD( self,varargin )
+            % plotCSD( self,(sqrtTransform) )
+            %
+            % plots the current source density (csd) from self.meanWaveform
+            %
+            % CSDs are only valid if electrodes are linearly, or
+            % near-linearly, spaced. If the optional argument
+            % "sqrtTransform" is true, the csd will be scaled via sqrt
+            % (helps see small features more easily)
+            
+            if isempty( self.meanWaveform )
+                return
+            end
+            
+            if nargin > 1 && ~isempty( varargin{1} )
+                sqrtTransform = varargin{1};
+            else
+                sqrtTransform = false;
+            end
+            
+            reds = [linspace( 0,0.975,20 ), 1, linspace(0.975,0.5,20)]';
+            greens = [linspace( 0,0.975,20 ), 1, linspace( 0.975,0,20 )]';
+            blues = flipud( reds );
+            cmap = [reds, greens, blues]; % blue -> white -> red colormap
+            
+            csd = self.getCSD()';
+            if sqrtTransform
+                minCSD = abs( min( csd(:) ) );
+                csd = sqrt( csd + minCSD ) - sqrt( minCSD );
+            end
+            
+            r = range( csd(:) );
+            contourf( csd,40,'LineStyle','none' );
+            set( gca,'tickdir','out','box','off',...
+                'xtick','','ytick','','clim',[-r/2 r/2] );
+            colormap( cmap ); colorbar
+        end
+            
+        
+        function findBestElectrode( self )
+            % findBestElectrode( self )
+            %
+            % finds the best electrode for this neuron object as the
+            % electrode with the largest absolute voltage, then updates the
+            % "bestElectrode" property and the "location" property if the
+            % ChannelIndex parent has a chanDistances property 
+            
+            [~,self.bestElectrode] = min( min( self.meanWaveform ) );
+            distances = self.getParent( 'ChannelIndex' ).chanDistances;
+            if ~isempty( distances )
+                self.location = distances( self.bestElectrode,: );
+            end
+        end
+        
     end %methods
-    
+
 end
         
         

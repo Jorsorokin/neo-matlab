@@ -5,21 +5,25 @@ function [spikeVec,trials] = spikemat2vec( spikeMat )
     % and also creates a vector "trials" consisting of numbers representing the trial (column)
     % that each spike time belongs to
     
-    if size( spikeMat,1 ) == 1
+    if min( size( spikeMat ) ) == 1
         spikeVec = spikeMat;
         trials = ones( 1,numel( spikeMat ) );
         return
     end
     
+    spikeMat(1,isnan( spikeMat(1,:) )) = 0;
     nPts = sum( ~isnan( spikeMat ) ); % # of points for each trial
     nTrials = size( spikeMat,2 );
     spikeVec = reshape( spikeMat,1,numel( spikeMat ) );
     spikeVec( isnan( spikeVec ) ) = [];
     trials = zeros( 1,numel( spikeVec ),'uint8' );
+    
     counter = 0;
     for j = 1:nTrials
         trials(counter+1:counter+nPts(j)) = repmat( uint8(j),1,nPts(j) );
         counter = counter + nPts(j);
     end
+    
+    spikeVec(spikeVec==0) = nan;
 end
     
